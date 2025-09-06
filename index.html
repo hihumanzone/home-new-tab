@@ -81,27 +81,9 @@
       transition: box-shadow .15s ease, transform .15s ease;
       user-select: none;
     }
-    .bar.drop-active {
-      box-shadow: 0 0 0 2px rgba(106,163,255,.5), var(--shadow-strong);
-      transform: translateZ(0);
-    }
     .bar:focus-within { box-shadow: var(--shadow); }
     .bar *:focus,
     .bar *:focus-visible { outline: none !important; box-shadow: none !important; }
-
-    .drop-hint {
-      position: absolute; inset: 2px;
-      border-radius: inherit;
-      display: none;
-      align-items: center; justify-content: center;
-      background: rgba(30,30,40,.25);
-      border: 2px dashed rgba(106,163,255,.55);
-      color: var(--ink);
-      font-size: .95rem;
-      pointer-events: none;
-      backdrop-filter: blur(2px);
-    }
-    .bar.drop-active .drop-hint { display: flex; }
 
     /* Input */
     .form { display: contents; }
@@ -411,8 +393,7 @@
           </svg>
         </button>
 
-        <input id="lensFile" type="file" accept="image/*" style="display:none" />
-        <button id="lensBtn" class="btn lens" type="button" title="Search with an image" aria-label="Search with an image">
+        <button id="lensBtn" class="btn lens" type="button" title="Google Lens" aria-label="Google Lens">
           <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3.75" y="3.75" width="16.5" height="16.5" rx="5"/>
             <circle cx="12" cy="12" r="4.25"/>
@@ -427,8 +408,6 @@
           </svg>
         </button>
       </div>
-
-      <div class="drop-hint">Drop an image to search with Google Lens</div>
     </div>
 
     <!-- Suggestions -->
@@ -631,7 +610,6 @@
       const go = $('#go');
       const voice = $('#voice');
       const lensBtn = $('#lensBtn');
-      const lensFile = $('#lensFile');
       const ai = $('#ai');
       const sugg = $('#sugg');
 
@@ -738,74 +716,13 @@
         } catch { voice.classList.remove('recording'); voice.disabled=false; }
       });
 
-      // Lens - Convert image to base64 and redirect to Google Images
-      const searchWithImage = async (file) => {
-        try {
-          // Create a canvas to compress the image
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          const img = new Image();
-          
-          return new Promise((resolve, reject) => {
-            img.onload = () => {
-              // Resize image to reasonable dimensions (max 800px)
-              const maxSize = 800;
-              let { width, height } = img;
-              
-              if (width > height && width > maxSize) {
-                height = (height * maxSize) / width;
-                width = maxSize;
-              } else if (height > maxSize) {
-                width = (width * maxSize) / height;
-                height = maxSize;
-              }
-              
-              canvas.width = width;
-              canvas.height = height;
-              ctx.drawImage(img, 0, 0, width, height);
-              
-              // Convert to base64 with reasonable quality
-              const dataURL = canvas.toDataURL('image/jpeg', 0.8);
-              
-              // Open Google Images with the image
-              const searchURL = `https://www.google.com/searchbyimage?image_url=${encodeURIComponent(dataURL)}`;
-              window.open(searchURL, '_blank', 'noopener');
-              resolve();
-            };
-            
-            img.onerror = () => reject(new Error('Failed to load image'));
-            img.src = URL.createObjectURL(file);
-          });
-        } catch (error) {
-          console.error('Image search error:', error);
-          alert('Failed to process image. Please try again.');
-        }
-      };
-
-      on(lensBtn, 'click', () => lensFile.click());
-      on(lensFile, 'change', async () => {
-        if (lensFile.files && lensFile.files.length) {
-          await searchWithImage(lensFile.files[0]);
-          lensFile.value = ''; // Reset file input
-        }
+      // Lens - open Google Lens website
+      on(lensBtn, 'click', () => {
+        window.open('https://lens.google.com/', '_blank', 'noopener');
       });
 
-      // Drag image over bar -> Lens
-      const isImage = f => f && f.type && f.type.startsWith('image/');
-      const enableDropUI = () => bar.classList.add('drop-active');
-      const disableDropUI = () => bar.classList.remove('drop-active');
-      on(bar, 'dragenter dragover', (e) => {
-        if (e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files')) {
-          e.preventDefault(); e.stopPropagation(); enableDropUI(); e.dataTransfer.dropEffect='copy';
-        }
-      });
-      on(bar, 'dragleave dragend', disableDropUI);
-      on(bar, 'drop', async (e) => {
-        e.preventDefault(); e.stopPropagation(); disableDropUI();
-        const files = e.dataTransfer?.files;
-        if (!files || !files.length || !isImage(files[0])) return;
-        await searchWithImage(files[0]);
-      });
+      // Remove drag and drop functionality since we're not uploading images anymore
+      // The drag-and-drop for image uploads has been removed
 
       // AI
       on(ai, 'click', () => {
