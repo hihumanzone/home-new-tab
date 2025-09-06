@@ -54,8 +54,8 @@ function mapNodeToItem(node){
 async function getToolbarNode(){
   // Try well-known Chrome id '1' first
   try {
-    const byId = await chrome.bookmarks.get('1');
-    if (Array.isArray(byId) && byId[0]) return byId[0];
+  const sub = await chrome.bookmarks.getSubTree('1');
+  if (Array.isArray(sub) && sub[0]) return sub[0];
   } catch {}
   // Fallback to tree traversal
   try {

@@ -572,7 +572,8 @@
             EXT.connect(1).then((data) => { if (data && Array.isArray(data.items)) { state.items = data.items; scImport.setAttribute('disabled','true'); render(); } });
             return;
           }
-          if (d && d.__ntb === true) {
+          // Only process replies that include an explicit ok boolean
+          if (d && d.__ntb === true && typeof d.ok === 'boolean') {
             const entry = pending.get(d.id);
             if (entry) {
               clearTimeout(entry.timer);
