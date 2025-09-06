@@ -411,8 +411,9 @@
           </svg>
         </button>
 
-        <form id="lensForm" action="https://lens.google.com/upload" method="POST" enctype="multipart/form-data" target="_blank" style="display:contents">
-          <input id="lensFile" type="file" name="encoded_image" accept="image/*" style="display:none" />
+        <form id="lensForm" action="https://lens.google.com/upload" method="POST" target="_blank" style="display:contents">
+          <input id="lensFile" type="file" accept="image/*" style="display:none" />
+          <input id="encodedImage" type="hidden" name="encoded_image" />
           <button id="lensBtn" class="btn lens" type="button" title="Search with an image" aria-label="Search with an image">
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
               <rect x="3.75" y="3.75" width="16.5" height="16.5" rx="5"/>
@@ -745,7 +746,15 @@
       on(lensBtn, 'click', () => lensFile.click());
       on(lensFile, 'change', () => {
         if (lensFile.files && lensFile.files.length) {
-          setTimeout(()=>{ lensForm.submit(); lensForm.reset(); },0);
+          const file = lensFile.files[0];
+          const reader = new FileReader();
+          reader.onload = () => {
+            const base64 = reader.result.split(',')[1];
+            encodedImage.value = base64;
+            lensForm.submit();
+            lensForm.reset();
+          };
+          reader.readAsDataURL(file);
         }
       });
 
