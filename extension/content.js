@@ -4,6 +4,8 @@
 // matches the extension-declared match pattern (https://home-new-tab.vercel.app/*).
 
 (function(){
+  if (window.__NTB_CONTENT_ACTIVE__) return; // guard for double-inject
+  window.__NTB_CONTENT_ACTIVE__ = true;
   const PAGE_ORIGIN = location.origin;
 
   function reply(event, id, ok, result, error){

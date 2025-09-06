@@ -1,5 +1,7 @@
 // Background service worker: handle bookmarks API requests and broadcast changes to content scripts.
 
+const TARGET_URL_MATCH = 'https://home-new-tab.vercel.app/*';
+
 // RPC handler
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || message.__ntb_bg !== true) return; // not ours
@@ -85,7 +87,7 @@ async function api(method, params){
 // Broadcast bookmark changes to all tabs with our content script injected on the allowed origin
 function broadcast(type, payload){
   // Send to all tabs at our origin
-  chrome.tabs.query({ url: 'https://home-new-tab.vercel.app/*' }, (tabs) => {
+  chrome.tabs.query({ url: TARGET_URL_MATCH }, (tabs) => {
     for (const t of tabs) {
       try {
         chrome.tabs.sendMessage(t.id, { __ntb_broadcast: true, type, payload });
@@ -98,3 +100,30 @@ chrome.bookmarks.onCreated.addListener((id, node) => broadcast('created', { id, 
 chrome.bookmarks.onRemoved.addListener((id, info) => broadcast('removed', { id, info }));
 chrome.bookmarks.onChanged.addListener((id, changeInfo) => broadcast('changed', { id, changeInfo }));
 chrome.bookmarks.onMoved.addListener((id, moveInfo) => broadcast('moved', { id, moveInfo }));
+
+// Ensure content script is injected even if content_scripts didn't fire (redirects, race, etc.)
+async function ensureInjected(tabId){
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ['content.js']
+    });
+  } catch {}
+}
+
+// On completed navigation to our origin, inject content script
+chrome.webNavigation.onCompleted.addListener(async (details) => {
+  if (details.frameId !== 0) return;
+  try {
+    const url = new URL(details.url);
+    if (url.origin === 'https://home-new-tab.vercel.app') await ensureInjected(details.tabId);
+  } catch {}
+}, { url: [{ urlMatches: '^https://home-new-tab\.vercel\.app/.*' }] });
+
+// On service worker start, inject into all existing matching tabs
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.tabs.query({ url: TARGET_URL_MATCH }, (tabs) => tabs.forEach(t => ensureInjected(t.id)));
+});
+chrome.runtime.onStartup.addListener(() => {
+  chrome.tabs.query({ url: TARGET_URL_MATCH }, (tabs) => tabs.forEach(t => ensureInjected(t.id)));
+});
