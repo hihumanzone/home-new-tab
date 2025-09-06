@@ -113,29 +113,50 @@ chrome.bookmarks.onMoved.addListener((id, moveInfo) => broadcast('moved', { id, 
 // Ensure content script is injected even if content_scripts didn't fire (redirects, race, etc.)
 async function ensureInjected(tabId){
   try {
+    // First test if we can access the tab
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      func: () => { console.log('[Home New Tab Ext] Test injection successful'); }
+    });
+    
+    // Then inject our content script
     await chrome.scripting.executeScript({
       target: { tabId },
       files: ['content.js']
     });
-  console.debug('[Home New Tab Ext] Injected content.js into tab', tabId);
-  } catch {}
-}
-
-// On completed navigation to our origin, inject content script
+    console.debug('[Home New Tab Ext] Injected content.js into tab', tabId);
+  } catch (err) {
+    console.warn('[Home New Tab Ext] Failed to inject into tab', tabId, err);
+  }
+}// On completed navigation to our origin, inject content script
 chrome.webNavigation.onCompleted.addListener(async (details) => {
   if (details.frameId !== 0) return;
+  console.debug('[Home New Tab Ext] Navigation completed:', details.url);
   try {
     const url = new URL(details.url);
-    if (url.origin === 'https://home-new-tab.vercel.app') await ensureInjected(details.tabId);
-  } catch {}
-}, { url: [{ urlMatches: '^https://home-new-tab\.vercel\.app/.*' }] });
+    if (url.origin === 'https://home-new-tab.vercel.app') {
+      console.debug('[Home New Tab Ext] Matched origin, injecting...');
+      await ensureInjected(details.tabId);
+    }
+  } catch (err) {
+    console.warn('[Home New Tab Ext] Navigation handler error:', err);
+  }
+}, { url: [{ urlMatches: '^https://home-new-tab\\.vercel\\.app/.*' }] });
 
 // On service worker start, inject into all existing matching tabs
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.tabs.query({ url: TARGET_URL_MATCH }, (tabs) => tabs.forEach(t => ensureInjected(t.id)));
+  console.debug('[Home New Tab Ext] onInstalled - checking tabs');
+  chrome.tabs.query({ url: TARGET_URL_MATCH }, (tabs) => {
+    console.debug('[Home New Tab Ext] Found', tabs.length, 'matching tabs');
+    tabs.forEach(t => ensureInjected(t.id));
+  });
 });
 chrome.runtime.onStartup.addListener(() => {
-  chrome.tabs.query({ url: TARGET_URL_MATCH }, (tabs) => tabs.forEach(t => ensureInjected(t.id)));
+  console.debug('[Home New Tab Ext] onStartup - checking tabs');
+  chrome.tabs.query({ url: TARGET_URL_MATCH }, (tabs) => {
+    console.debug('[Home New Tab Ext] Found', tabs.length, 'matching tabs');
+    tabs.forEach(t => ensureInjected(t.id));
+  });
 });
 
 } // end extension-context guard

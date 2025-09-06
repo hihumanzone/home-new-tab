@@ -10,7 +10,8 @@
     "bookmarks",
     "tabs",
     "scripting",
-    "webNavigation"
+    "webNavigation",
+    "activeTab"
   ],
   "host_permissions": [
     "https://home-new-tab.vercel.app/*"
