@@ -537,6 +537,74 @@
     (() => {
       'use strict';
 
+      // Extension bridge: talk to the new-tab extension's content script if present
+      const EXT = (() => {
+        const ORIGIN = 'https://home-new-tab.vercel.app';
+        let reqId = 0;
+        const pending = new Map();
+        let connected = false;
+        let toolbarRootId = null;
+
+        function call(method, params = {}, timeout = 5000) {
+          return new Promise((resolve, reject) => {
+            const id = `rpc_${Date.now()}_${++reqId}`;
+            const t = setTimeout(() => {
+              pending.delete(id);
+              reject(new Error('EXT timeout'));
+            }, timeout);
+            pending.set(id, { resolve, reject, timer: t });
+            try {
+              window.postMessage({ __ntb: true, id, method, params }, ORIGIN);
+            } catch (e) {
+              clearTimeout(t); pending.delete(id); reject(e);
+            }
+          });
+        }
+
+        // Handle replies and broadcasts
+        window.addEventListener('message', (event) => {
+          if (event.origin !== ORIGIN) return;
+          const d = event.data;
+          if (d && d.__ntb === true) {
+            const entry = pending.get(d.id);
+            if (entry) {
+              clearTimeout(entry.timer);
+              pending.delete(d.id);
+              d.ok ? entry.resolve(d.result) : entry.reject(new Error(d.error || 'EXT error'));
+            }
+          } else if (d && d.__ntb_broadcast === true) {
+            // Live updates; debounce a refresh
+            EXT._notifyChange();
+          }
+        });
+
+        async function connect() {
+          try {
+            const data = await call('getToolbar', {}, 1200);
+            toolbarRootId = data?.id || null;
+            connected = !!toolbarRootId;
+            return connected ? data : null;
+          } catch { return null; }
+        }
+
+        // Public API
+        return {
+          connect,
+          isConnected: () => connected,
+          getToolbar: () => call('getToolbar'),
+          createLink: (args) => call('createLink', args),
+          createFolder: (args) => call('createFolder', args),
+          updateNode: (args) => call('updateNode', args),
+          moveNode: (args) => call('moveNode', args),
+          removeNode: (args) => call('removeNode', args),
+          getToolbarRootId: () => toolbarRootId,
+          _notifyChange: (() => {
+            let t = null;
+            return () => { clearTimeout(t); t = setTimeout(() => { if (typeof window.__extRefresh === 'function') window.__extRefresh(); }, 120); };
+          })(),
+        };
+      })();
+
       // Utilities
       const $ = (sel, root=document) => root.querySelector(sel);
       const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
@@ -723,10 +791,11 @@
       const scLocationLabel = $('#scLocationLabel');
       const btnCancel = $('#scCancel');
 
-      const store = {
+    const store = {
         key: 'shortcuts.v1',
         load() {
-          try {
+      if (EXT.isConnected()) return null;
+      try {
             const raw = localStorage.getItem(this.key);
             if (!raw) return null;
             const parsed = JSON.parse(raw);
@@ -734,7 +803,8 @@
           } catch { return null; }
         },
         save(items) {
-          try { localStorage.setItem(this.key, JSON.stringify({ items })); } catch {}
+      if (EXT.isConnected()) return; // Extension is source of truth
+      try { localStorage.setItem(this.key, JSON.stringify({ items })); } catch {}
         },
         export(items) {
           const payload = { version: 1, exportedAt: new Date().toISOString(), items };
@@ -774,6 +844,19 @@
         folderEdit: false, // folder overlay edit mode
         folderOpen: null
       };
+
+      // Extension-backed refresh: fetch bookmark bar and render
+      async function refreshFromExtension() {
+        try {
+          const data = await EXT.getToolbar();
+          if (data && Array.isArray(data.items)) {
+            state.items = data.items;
+            render();
+          }
+        } catch {}
+      }
+      // Expose for debounced broadcasts
+      window.__extRefresh = refreshFromExtension;
 
       // Helpers
       const findById = (id, list=state.items, parent=null) => {
@@ -891,7 +974,7 @@
       };
 
       // Folder open/close
-      const openFolder = (folderId) => {
+  const openFolder = (folderId) => {
         const f = findById(folderId)?.item;
         if (!f || f.type !== 'folder') return;
         state.folderOpen = folderId;
@@ -960,12 +1043,17 @@
       };
 
       // Click handlers (root grid)
-      on(scGrid, 'click', (e) => {
+      on(scGrid, 'click', async (e) => {
         const tile = e.target.closest('.tile'); if (!tile) return;
         const rm = e.target.closest('.remove');
         const ed = e.target.closest('.edit');
 
-        if (rm && state.edit) { removeById(tile.dataset.id); render(); return; }
+        if (rm && state.edit) {
+          const id = tile.dataset.id;
+          if (EXT.isConnected()) { try { await EXT.removeNode({ id }); await refreshFromExtension(); } catch {} }
+          else { removeById(id); render(); }
+          return;
+        }
         if (ed && state.edit) { openEdit(tile.dataset.id); return; }
         if (state.edit) return;
 
@@ -978,12 +1066,17 @@
       });
 
       // Click handlers (folder grid)
-      on(fvGrid, 'click', (e) => {
+      on(fvGrid, 'click', async (e) => {
         const tile = e.target.closest('.tile'); if (!tile) return;
         const rm = e.target.closest('.remove');
         const ed = e.target.closest('.edit');
 
-        if (rm && state.folderEdit) { removeById(tile.dataset.id); render(); return; }
+        if (rm && state.folderEdit) {
+          const id = tile.dataset.id;
+          if (EXT.isConnected()) { try { await EXT.removeNode({ id }); await refreshFromExtension(); } catch {} }
+          else { removeById(id); render(); }
+          return;
+        }
         if (ed && state.folderEdit) { openEdit(tile.dataset.id); return; }
         if (state.folderEdit) return;
 
@@ -1037,7 +1130,7 @@
             if (type === 'folder' && findById(dragInfo.id)?.item.type === 'link') overTile.classList.add('drop-into');
           }
         });
-        on(grid, 'drop', (e) => {
+        on(grid, 'drop', async (e) => {
           const currentGrid = e.currentTarget;
           if (!isGridEditable(currentGrid) || !dragInfo) return;
           e.preventDefault();
@@ -1053,32 +1146,64 @@
 
             // Only links into folders (no sub-folders)
             if (overType === 'folder' && dragged.type === 'link') {
-              removeById(dragInfo.id);
-              const folder = findById(overId)?.item;
-              folder.children = folder.children || [];
-              folder.children.push(dragged);
-              render(); return;
+              if (EXT.isConnected()) {
+                const parentId = overId; // move into folder
+                try { await EXT.moveNode({ id: dragged.id, parentId }); await refreshFromExtension(); } catch {}
+              } else {
+                removeById(dragInfo.id);
+                const folder = findById(overId)?.item;
+                folder.children = folder.children || [];
+                folder.children.push(dragged);
+                render();
+              }
+              return;
             }
 
             if (dragInfo.fromCtx !== toCtx) {
-              const extracted = removeById(dragInfo.id); if (!extracted) return;
-              const list = listForContext(toCtx).slice();
-              const toIdx = list.findIndex(x => x.id === overId);
-              list.splice(toIdx < 0 ? list.length : toIdx, 0, extracted);
-              setListForContext(toCtx, list); render(); return;
+              if (EXT.isConnected()) {
+                const parentId = (toCtx === 'root') ? EXT.getToolbarRootId() : toCtx;
+                // Insert before overId => compute index of overId in target list
+                const list = listForContext(toCtx);
+                const toIdx = Math.max(0, list.findIndex(x => x.id === overId));
+                try { await EXT.moveNode({ id: dragged.id, parentId, index: toIdx }); await refreshFromExtension(); } catch {}
+              } else {
+                const extracted = removeById(dragInfo.id); if (!extracted) return;
+                const list = listForContext(toCtx).slice();
+                const toIdx = list.findIndex(x => x.id === overId);
+                list.splice(toIdx < 0 ? list.length : toIdx, 0, extracted);
+                setListForContext(toCtx, list); render();
+              }
+              return;
             } else {
-              reorderWithin(toCtx, dragInfo.id, overId); render(); return;
+              if (EXT.isConnected()) {
+                const parentId = (toCtx === 'root') ? EXT.getToolbarRootId() : toCtx;
+                const list = listForContext(toCtx);
+                const toIdx = Math.max(0, list.findIndex(x => x.id === overId));
+                try { await EXT.moveNode({ id: dragged.id, parentId, index: toIdx }); await refreshFromExtension(); } catch {}
+              } else {
+                reorderWithin(toCtx, dragInfo.id, overId); render();
+              }
+              return;
             }
           } else {
             // Drop into empty grid area => move to end
             if (dragInfo.fromCtx !== toCtx) {
-              const extracted = removeById(dragInfo.id); if (!extracted) return;
-              const list = listForContext(toCtx).slice(); list.push(extracted);
-              setListForContext(toCtx, list);
+              if (EXT.isConnected()) {
+                const parentId = (toCtx === 'root') ? EXT.getToolbarRootId() : toCtx;
+                try { await EXT.moveNode({ id: dragged.id, parentId }); await refreshFromExtension(); } catch {}
+              } else {
+                const extracted = removeById(dragInfo.id); if (!extracted) return;
+                const list = listForContext(toCtx).slice(); list.push(extracted);
+                setListForContext(toCtx, list); render();
+              }
             } else {
-              reorderWithin(toCtx, dragInfo.id, null);
+              if (EXT.isConnected()) {
+                const parentId = (toCtx === 'root') ? EXT.getToolbarRootId() : toCtx;
+                try { await EXT.moveNode({ id: dragged.id, parentId }); await refreshFromExtension(); } catch {}
+              } else {
+                reorderWithin(toCtx, dragInfo.id, null); render();
+              }
             }
-            render();
           }
         });
       };
@@ -1086,8 +1211,8 @@
       attachDnD(fvGrid);
 
       // Top bar buttons
-      on(scAdd, 'click', () => openDialog('link'));
-      on(scAddFolder, 'click', () => openDialog('folder')); // always top-level
+  on(scAdd, 'click', () => openDialog('link'));
+  on(scAddFolder, 'click', () => openDialog('folder')); // always top-level
       on(scEdit, 'click', () => { state.edit = !state.edit; render(); });
 
       // Folder controls
@@ -1098,7 +1223,7 @@
       // Dialog interactions
       on(overlay, 'click', closeDialog);
       on(btnCancel, 'click', closeDialog);
-      on(scForm, 'submit', (e) => {
+      on(scForm, 'submit', async (e) => {
         e.preventDefault();
         const title = inputTitle.value.trim();
         const mode = dialogState.mode;
@@ -1109,8 +1234,12 @@
           if (!found) { closeDialog(); return; }
 
           if (mode === 'folder') {
-            found.item.title = title || 'Folder';
-            render(); closeDialog(); return;
+            if (EXT.isConnected()) {
+              try { await EXT.updateNode({ id: found.item.id, title: title || 'Folder' }); await refreshFromExtension(); } catch {}
+            } else {
+              found.item.title = title || 'Folder'; render();
+            }
+            closeDialog(); return;
           }
 
           // Edit link + Move to...
@@ -1123,21 +1252,33 @@
           const currentLoc = found.parent?.id || 'root';
           const newLoc = (rowLoc.style.display !== 'none') ? (selectLocation.value || currentLoc) : currentLoc;
 
-          if (newLoc === currentLoc) {
-            found.item.title = name; found.item.url = url;
+          if (EXT.isConnected()) {
+            try {
+              await EXT.updateNode({ id: found.item.id, title: name, url });
+              if (newLoc !== currentLoc) {
+                const parentId = (newLoc === 'root') ? EXT.getToolbarRootId() : newLoc;
+                await EXT.moveNode({ id: found.item.id, parentId });
+              }
+              await refreshFromExtension();
+            } catch {}
           } else {
-            const updated = removeById(dialogState.editId);
-            if (updated) {
-              updated.title = name; updated.url = url;
-              if (newLoc === 'root') state.items.push(updated);
-              else {
-                const folder = findById(newLoc)?.item;
-                folder.children = folder.children || [];
-                folder.children.push(updated);
+            if (newLoc === currentLoc) {
+              found.item.title = name; found.item.url = url;
+            } else {
+              const updated = removeById(dialogState.editId);
+              if (updated) {
+                updated.title = name; updated.url = url;
+                if (newLoc === 'root') state.items.push(updated);
+                else {
+                  const folder = findById(newLoc)?.item;
+                  folder.children = folder.children || [];
+                  folder.children.push(updated);
+                }
               }
             }
+            render();
           }
-          render(); closeDialog(); return;
+          closeDialog(); return;
         }
 
         // Create new
@@ -1149,21 +1290,31 @@
             new URL(url);
           } catch { alert('Please enter a valid URL.'); return; }
           const name = title || (new URL(url).hostname.replace(/^www\./,''));
-          const item = { id: uid('sc'), type: 'link', title: name, url };
           const loc = (selectLocation.value || 'root');
-          if (loc === 'root') state.items.push(item);
-          else {
-            const folder = findById(loc)?.item;
-            if (folder?.type === 'folder') { folder.children = folder.children || []; folder.children.push(item); }
-            else state.items.push(item);
+          if (EXT.isConnected()) {
+            const parentId = (loc === 'root') ? EXT.getToolbarRootId() : loc;
+            try { await EXT.createLink({ parentId, title: name, url }); await refreshFromExtension(); } catch {}
+          } else {
+            const item = { id: uid('sc'), type: 'link', title: name, url };
+            if (loc === 'root') state.items.push(item);
+            else {
+              const folder = findById(loc)?.item;
+              if (folder?.type === 'folder') { folder.children = folder.children || []; folder.children.push(item); }
+              else state.items.push(item);
+            }
           }
         } else {
           // New folder: always top-level
           const name = title || 'New folder';
-          state.items.push({ id: uid('fld'), type: 'folder', title: name, children: [] });
+          if (EXT.isConnected()) {
+            try { await EXT.createFolder({ parentId: EXT.getToolbarRootId(), title: name }); await refreshFromExtension(); } catch {}
+          } else {
+            state.items.push({ id: uid('fld'), type: 'folder', title: name, children: [] });
+          }
         }
 
-        render(); closeDialog();
+        if (!EXT.isConnected()) render();
+        closeDialog();
         inputTitle.value = ''; inputUrl.value = '';
       });
 
@@ -1213,7 +1364,10 @@
       };
 
       on(scExport, 'click', () => store.export(state.items));
-      on(scImport, 'click', () => scImportFile.click());
+      on(scImport, 'click', () => {
+        if (EXT.isConnected()) { alert('Import is disabled while syncing with bookmarks.'); return; }
+        scImportFile.click();
+      });
       on(scImportFile, 'change', async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -1242,8 +1396,18 @@
         }
       });
 
-      // Init
-      render();
+      // Init: attempt to connect to extension; if connected, load bookmarks, else fallback to local
+      (async () => {
+        const data = await EXT.connect();
+        if (data && Array.isArray(data.items)) {
+          state.items = data.items;
+          // Disable import/export UI when syncing
+          scImport.setAttribute('disabled', 'true');
+          render();
+        } else {
+          render();
+        }
+      })();
     })();
   </script>
 

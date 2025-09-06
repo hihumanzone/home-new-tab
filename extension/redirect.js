@@ -1,0 +1,1 @@
+location.replace("https://home-new-tab.vercel.app/");
