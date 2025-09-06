@@ -314,7 +314,7 @@
       display:flex; align-items:center; gap:8px;
     }
     .folder-view .fv-title{
-      font-size:.95rem; color: var(--ink); font-weight: 600; letter-spacing:.02em;
+      font-size:.95rem; color: var(--ink); font-weight:600; letter-spacing:.02em;
     }
     .folder-view .fv-actions{
       display:flex; align-items:center; gap:6px;
@@ -411,11 +411,10 @@
           </svg>
         </button>
 
-        <!-- Google reverse image search form -->
-        <form id="lensForm" action="https://www.google.com/searchbyimage/upload?hl=en" method="POST" enctype="multipart/form-data" target="_blank" style="display:contents">
-          <input id="lensFile" type="file" name="encoded_image" accept="image/*" style="display:none" />
-          <!-- Required by Google to indicate file upload mode -->
-          <input type="hidden" name="image_url" value="" />
+        <!-- Use Google Images upload endpoint to avoid Lens 403 on cross-origin POST -->
+        <form id="lensForm" action="https://www.google.com/searchbyimage/upload" method="POST" enctype="multipart/form-data" target="_blank" style="display:contents">
+          <input id="lensFile" type="file" name="image_content" accept="image/*" style="display:none" />
+          <input id="lensHl" type="hidden" name="hl" value="en" />
           <button id="lensBtn" class="btn lens" type="button" title="Search with an image" aria-label="Search with an image">
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
               <rect x="3.75" y="3.75" width="16.5" height="16.5" rx="5"/>
@@ -747,9 +746,9 @@
       // Lens
   on(lensBtn, 'click', () => lensFile.click());
       on(lensFile, 'change', () => {
-        if (lensFile.files && lensFile.files.length) {
-          // Submit the form directly; Google uses file input and empty image_url
-          setTimeout(() => { lensForm.submit(); lensForm.reset(); }, 0);
+        if (lensFile.files && lensFile.files.length > 0) {
+          lensForm.submit();
+          lensForm.reset();
         }
       });
 
