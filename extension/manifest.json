@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Simple New Tab Redirect",
+  "name": "New Tab Redirect",
   "version": "1.0.0",
   "description": "Sets https://home-new-tab.vercel.app/ as your new tab page.",
   "chrome_url_overrides": {

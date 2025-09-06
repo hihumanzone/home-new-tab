@@ -23,8 +23,14 @@
   window.addEventListener('message', async (event) => {
     if (event.source !== window) return;
     const data = event.data;
-  if (!data || data.__ntb !== true || typeof data.ok === 'boolean') return; // ignore replies
-  const { id, method, params } = data;
+    if (!data || data.__ntb !== true || typeof data.ok === 'boolean') return; // ignore replies
+    
+    // Validate RPC structure before processing
+    const { id, method, params } = data;
+    if (!id || !method || typeof method !== 'string') {
+      console.warn('[Home New Tab Ext] Content script received invalid RPC - missing id/method');
+      return;
+    }
     
     try {
       chrome.runtime.sendMessage({ __ntb_bg: true, id, method, params }, (resp) => {
