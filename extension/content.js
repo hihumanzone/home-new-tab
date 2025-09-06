@@ -7,7 +7,7 @@
   if (window.__NTB_CONTENT_ACTIVE__) return; // guard for double-inject
   window.__NTB_CONTENT_ACTIVE__ = true;
   const PAGE_ORIGIN = location.origin;
-  try { console.debug('[Home New Tab Ext] content.js active on', PAGE_ORIGIN); } catch {}
+  // Content script ready
 
   function reply(event, id, ok, result, error){
     try { event.source.postMessage({ __ntb: true, id, ok, result, error }, event.origin); } catch(e) {}
@@ -26,16 +26,13 @@
   if (!data || data.__ntb !== true || typeof data.ok === 'boolean') return; // ignore replies
   const { id, method, params } = data;
     
-    console.debug('[Home New Tab Ext] Content script received RPC:', method, params);
     try {
       chrome.runtime.sendMessage({ __ntb_bg: true, id, method, params }, (resp) => {
-        console.debug('[Home New Tab Ext] Background response:', resp);
         if (!resp) { reply(event, id, false, null, 'No response'); return; }
         if (resp.ok) reply(event, id, true, resp.result);
         else reply(event, id, false, null, resp.error);
       });
     } catch (err) {
-      console.debug('[Home New Tab Ext] Content script error:', err);
       reply(event, id, false, null, String(err && err.message || err));
     }
   });
