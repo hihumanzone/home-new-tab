@@ -412,7 +412,7 @@
         </button>
 
         <!-- Use Google Images upload endpoint to avoid Lens 403 on cross-origin POST -->
-        <form id="lensForm" action="https://www.google.com/searchbyimage/upload" method="POST" enctype="multipart/form-data" target="_blank" style="display:contents">
+  <form id="lensForm" action="https://www.google.com/searchbyimage/upload" method="POST" enctype="multipart/form-data" target="_blank" referrerpolicy="no-referrer" style="display:inline; margin:0; padding:0; border:0; background:none">
           <input id="lensFile" type="file" name="encoded_image" accept="image/*" style="display:none" />
           <input id="lensHl" type="hidden" name="hl" value="en" />
           <button id="lensBtn" class="btn lens" type="button" title="Search with an image" aria-label="Search with an image">
@@ -747,7 +747,7 @@
   on(lensBtn, 'click', () => lensFile.click());
       on(lensFile, 'change', () => {
         if (lensFile.files && lensFile.files.length) {
-          setTimeout(()=>{ lensForm.submit(); lensForm.reset(); },0);
+          try { lensForm.submit(); } finally { setTimeout(() => lensForm.reset(), 1200); }
         }
       });
 
@@ -761,13 +761,14 @@
         }
       });
       on(bar, 'dragleave dragend', disableDropUI);
-      on(bar, 'drop', (e) => {
+    on(bar, 'drop', (e) => {
         e.preventDefault(); e.stopPropagation(); disableDropUI();
         const files = e.dataTransfer?.files;
         if (!files || !files.length || !isImage(files[0])) return;
         try {
-          const dt = new DataTransfer(); dt.items.add(files[0]); lensFile.files = dt.files;
-          lensForm.submit(); lensForm.reset();
+      const dt = new DataTransfer(); dt.items.add(files[0]); lensFile.files = dt.files;
+      // Defer submit one tick to ensure FileList assignment settles
+      setTimeout(() => { lensForm.submit(); setTimeout(() => lensForm.reset(), 1200); }, 0);
         } catch { lensFile.click(); }
       });
 
