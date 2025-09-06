@@ -5,14 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Home</title>
 
-  <!-- Performance hints -->
-  <link rel="preload" href="./assets/wallpaper-dark.jpg" as="image" />
-  <link rel="dns-prefetch" href="//www.google.com" />
-  <link rel="dns-prefetch" href="//suggestqueries.google.com" />
-  <link rel="dns-prefetch" href="//lens.google.com" />
-  <link rel="preconnect" href="https://www.google.com" crossorigin />
-  <link rel="preconnect" href="https://suggestqueries.google.com" crossorigin />
-  <link rel="preconnect" href="https://lens.google.com" crossorigin />
+  <link rel="preload" href="./wallpaper-dark.jpg" as="image" />
 
   <style>
     :root{
@@ -28,16 +21,29 @@
       --btn-hover: #2b292c;
       --suggest-bg: rgba(18,17,18,.9);
       --suggest-hover: #1d1b1e;
+
+      --dock-top: 6vh;
+      --bar-h: 60px;
     }
 
     /* Base */
     html, body {
       height: 100%;
-      background: var(--bg) fixed no-repeat center/cover url("./assets/wallpaper-dark.jpg");
+      background-color: var(--bg);
+      background-image: url("./wallpaper-dark.jpg");
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: cover;
+      background-attachment: fixed;
+
       color: var(--ink);
       font: 16px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,Arial,"Apple Color Emoji","Segoe UI Emoji";
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
+
+      margin: 0;
+      overflow: hidden;
+      overscroll-behavior: none;
     }
     body::before{
       content:"";
@@ -47,20 +53,18 @@
       z-index: 0;
     }
 
-    /* Fixed, top-centered dock for bar + suggestions */
     .dock {
       position: fixed;
-      top: 6vh;
+      top: var(--dock-top);
       left: 50%;
       transform: translateX(-50%);
       width: min(820px, calc(100vw - 2rem));
       z-index: 10;
     }
 
-    /* Search bar (logo removed) */
     .bar {
       display: grid;
-      grid-template-columns: 1fr auto; /* input + actions */
+      grid-template-columns: 1fr auto;
       align-items: center;
       gap: 10px;
       background: rgba(16,14,15,.9);
@@ -77,7 +81,6 @@
       transform: translateZ(0);
     }
 
-    /* Remove blue focus outline/highlight */
     .bar:focus-within { box-shadow: var(--shadow); }
     .bar *:focus,
     .bar *:focus-visible { outline: none !important; box-shadow: none !important; }
@@ -147,14 +150,11 @@
       100% { box-shadow: 0 0 0 0 rgba(106,163,255,0); }
     }
 
-    /* Lens button slightly larger for balance */
     .lens { width: 40px; height: 40px; }
     .lens svg { width: 20px; height: 20px; }
 
-    /* Right-most AI Mode */
     .ai { width: 44px; height: 44px; margin-left: 4px; }
 
-    /* Suggestions under fixed dock (no layout shift) */
     .suggest {
       position: absolute;
       left: 0; right: 0;
@@ -166,8 +166,8 @@
       border-radius: 16px;
       box-shadow: 0 10px 40px rgba(0,0,0,.6);
       backdrop-filter: blur(6px) saturate(120%);
-      max-height: 50vh;
-      overflow: auto;
+      max-height: calc(100vh - var(--dock-top) - var(--bar-h) - 20px);
+      overflow-x: hidden;
       display: none;
       z-index: 9;
     }
@@ -188,7 +188,6 @@
     .suggest li.active { background: var(--suggest-hover); }
     .s-icon { width: 18px; height: 18px; opacity: .7; }
 
-    /* Reduce motion where preferred */
     @media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
   </style>
 </head>
@@ -250,11 +249,11 @@
 
   <script>
     (() => {
-      // Shorthand helpers
+      'use strict';
+      
       const $ = (sel, root=document) => root.querySelector(sel);
       const on = (el, evts, fn) => evts.split(' ').forEach(e => el.addEventListener(e, fn));
 
-      // Elements
       const bar = $('#bar');
       const form = $('#form');
       const q = $('#q');
@@ -266,7 +265,6 @@
       const ai = $('#ai');
       const sugg = $('#sugg');
 
-      // Submit search (Enter or button)
       const submitSearch = () => {
         const v = q.value.trim();
         if (!v) { q.focus(); return; }
@@ -277,96 +275,238 @@
         if (!q.value.trim()) { e.preventDefault(); q.focus(); }
       });
 
-      // Suggestions: non-personalized via public endpoint
-      const MAX_ITEMS = 8;
-      let activeIndex = -1;
-      let lastQ = '';
-      let inFlight; // AbortController
+      const SUGGESTIONS_CONFIG = {
+        maxItems: 8,
+        timeout: 3000,
+        fallbackSuggestions: [
+          "news", "weather", "maps", "translate", "time", 
+          "calculator", "currency converter", "nearby restaurants", 
+          "youtube", "gmail"
+        ]
+      };
 
-      const fetchSuggestions = async (text) => {
-        try {
-          inFlight?.abort();
-          inFlight = new AbortController();
-          const url = 'https://suggestqueries.google.com/complete/search?client=firefox&hl=en&q=' + encodeURIComponent(text);
-          const res = await fetch(url, { signal: inFlight.signal, cache: 'no-store' });
-          const data = await res.json();
-          return Array.isArray(data?.[1]) ? data[1] : [];
-        } catch {
-          // Local fallback (very small and generic)
-          const base = ["news","weather","maps","translate","time","calculator","currency converter","nearby restaurants","youtube","gmail"];
-          const t = text.toLowerCase();
-          return base.filter(v => v.includes(t)).slice(0, MAX_ITEMS);
+      let activeIndex = -1;
+      let lastQuery = '';
+
+      const cleanupSuggestionScript = () => {
+        const existingScript = document.querySelector('#suggestions-script');
+        if (existingScript) {
+          existingScript.remove();
         }
       };
 
-      // Small debounce
-      const debounce = (fn, ms=120) => { let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; };
+      const getFallbackSuggestions = (text) => {
+        const query = text.toLowerCase();
+        return SUGGESTIONS_CONFIG.fallbackSuggestions
+          .filter(suggestion => suggestion.includes(query))
+          .slice(0, SUGGESTIONS_CONFIG.maxItems);
+      };
+
+      const fetchSuggestions = async (text) => {
+        return new Promise((resolve) => {
+          try {
+            cleanupSuggestionScript();
+
+            const callbackName = `suggCallback_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            
+            window[callbackName] = (data) => {
+              try {
+                delete window[callbackName];
+                cleanupSuggestionScript();
+                
+                const suggestions = Array.isArray(data?.[1]) ? data[1] : [];
+                resolve(suggestions);
+              } catch (error) {
+                console.warn('Error processing suggestions:', error);
+                resolve([]);
+              }
+            };
+
+            const script = document.createElement('script');
+            script.id = 'suggestions-script';
+            script.src = `https://suggestqueries.google.com/complete/search?client=firefox&hl=en&callback=${callbackName}&q=${encodeURIComponent(text)}`;
+            
+            script.onerror = () => {
+              delete window[callbackName];
+              cleanupSuggestionScript();
+              console.warn('Failed to load suggestions from Google API, using fallback');
+              resolve(getFallbackSuggestions(text));
+            };
+
+            document.head.appendChild(script);
+
+            setTimeout(() => {
+              if (window[callbackName]) {
+                delete window[callbackName];
+                cleanupSuggestionScript();
+                console.warn('Suggestions request timed out, using fallback');
+                resolve(getFallbackSuggestions(text));
+              }
+            }, SUGGESTIONS_CONFIG.timeout);
+
+          } catch (error) {
+            console.warn('Error fetching suggestions:', error);
+            resolve(getFallbackSuggestions(text));
+          }
+        });
+      };
+
       const renderSuggestions = (items) => {
-        if (!items.length) { sugg.classList.remove('show'); sugg.innerHTML = ''; return; }
-        sugg.innerHTML = items.map((text, i) => `
-          <li role="option" data-index="${i}" aria-selected="false" title="${text.replace(/"/g,'&quot;')}">
-            <svg class="s-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6" fill="currentColor" /></svg>
-            <span>${text.replace(/</g,'&lt;')}</span>
-          </li>
-        `).join('');
+        if (!items || items.length === 0) {
+          sugg.classList.remove('show');
+          sugg.innerHTML = '';
+          return;
+        }
+
+        const suggestionItems = items
+          .slice(0, SUGGESTIONS_CONFIG.maxItems)
+          .map((text, index) => {
+            const escapedText = text.replace(/"/g, '&quot;').replace(/</g, '&lt;');
+            return `
+              <li role="option" data-index="${index}" aria-selected="false" title="${escapedText}">
+                <svg class="s-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="11" cy="11" r="6" fill="currentColor" />
+                </svg>
+                <span>${escapedText}</span>
+              </li>
+            `;
+          })
+          .join('');
+
+        sugg.innerHTML = suggestionItems;
         activeIndex = -1;
         sugg.classList.add('show');
       };
 
+      const debounce = (fn, delay = 120) => {
+        let timeoutId;
+        return (...args) => {
+          clearTimeout(timeoutId);
+          timeoutId = setTimeout(() => fn(...args), delay);
+        };
+      };
+
       const updateSuggestions = debounce(async (text) => {
-        if (!text || text === lastQ) { if (!text) { sugg.classList.remove('show'); sugg.innerHTML=''; } return; }
-        lastQ = text;
-        const items = (await fetchSuggestions(text)).slice(0, MAX_ITEMS);
-        renderSuggestions(items);
+        const trimmedText = text.trim();
+        
+        if (!trimmedText) {
+          sugg.classList.remove('show');
+          sugg.innerHTML = '';
+          lastQuery = '';
+          return;
+        }
+
+        if (trimmedText === lastQuery) {
+          return;
+        }
+
+        lastQuery = trimmedText;
+        
+        try {
+          const suggestions = await fetchSuggestions(trimmedText);
+          renderSuggestions(suggestions);
+        } catch (error) {
+          console.warn('Failed to update suggestions:', error);
+          renderSuggestions(getFallbackSuggestions(trimmedText));
+        }
       }, 120);
 
-      q.addEventListener('input', e => updateSuggestions(e.target.value.trim()));
-      q.addEventListener('focus', () => { const v = q.value.trim(); if (v) updateSuggestions(v); });
-
-      // Keyboard navigation for suggestions
-      q.addEventListener('keydown', (e) => {
+      const setActive = (idx) => {
         const items = Array.from(sugg.querySelectorAll('li'));
-        if (!items.length) return;
+        if (!items.length) { activeIndex = -1; return; }
+        items.forEach((li, i) => {
+          const active = i === idx;
+          li.classList.toggle('active', active);
+          li.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        activeIndex = idx;
+        if (idx >= 0) items[idx].scrollIntoView({ block: 'nearest' });
+      };
 
-        if (e.key === 'ArrowDown') {
-          e.preventDefault();
-          activeIndex = (activeIndex + 1) % items.length;
-          setActive(items, activeIndex);
-        } else if (e.key === 'ArrowUp') {
-          e.preventDefault();
-          activeIndex = (activeIndex - 1 + items.length) % items.length;
-          setActive(items, activeIndex);
-        } else if (e.key === 'Enter') {
-          if (activeIndex >= 0) {
+      function handleSuggestionKeyboard(e) {
+        const items = Array.from(sugg.querySelectorAll('li'));
+        const isOpen = sugg.classList.contains('show') && items.length > 0;
+
+        switch (e.key) {
+          case 'ArrowDown':
+            if (!isOpen) {
+              if (q.value.trim()) updateSuggestions(q.value);
+            } else {
+              const next = (activeIndex + 1) % items.length;
+              setActive(next);
+            }
             e.preventDefault();
-            q.value = items[activeIndex].innerText.trim();
-            submitSearch();
-          }
-        } else if (e.key === 'Escape') {
-          sugg.classList.remove('show'); activeIndex = -1;
+            break;
+          case 'ArrowUp':
+            if (isOpen) {
+              const next = activeIndex <= 0 ? items.length - 1 : activeIndex - 1;
+              setActive(next);
+              e.preventDefault();
+            }
+            break;
+          case 'Enter':
+            if (isOpen && activeIndex >= 0) {
+              const selected = items[activeIndex].querySelector('span')?.textContent?.trim();
+              if (selected) q.value = selected;
+              sugg.classList.remove('show');
+              activeIndex = -1;
+              e.preventDefault();
+              submitSearch();
+            }
+            break;
+          case 'Escape':
+            if (isOpen) {
+              sugg.classList.remove('show');
+              activeIndex = -1;
+              e.preventDefault();
+            }
+            break;
+        }
+      }
+
+      q.addEventListener('input', (event) => {
+        updateSuggestions(event.target.value);
+      });
+
+      q.addEventListener('focus', () => {
+        const currentValue = q.value.trim();
+        if (currentValue) {
+          updateSuggestions(currentValue);
         }
       });
 
-      const setActive = (items, idx) => {
-        items.forEach((li,i) => {
-          const on = i === idx;
-          li.classList.toggle('active', on);
-          li.setAttribute('aria-selected', on ? 'true' : 'false');
-          if (on) li.scrollIntoView({ block: 'nearest' });
-        });
-      };
+      q.addEventListener('keydown', handleSuggestionKeyboard);
 
-      // Click suggestion
-      sugg.addEventListener('mousedown', (e) => e.preventDefault()); // keep input focus
-      sugg.addEventListener('click', (e) => {
-        const li = e.target.closest('li'); if (!li) return;
-        q.value = li.innerText.trim();
+      sugg.addEventListener('mousedown', (event) => {
+        event.preventDefault();
+      });
+
+      sugg.addEventListener('click', (event) => {
+        const listItem = event.target.closest('li');
+        if (!listItem) return;
+
+        const selectedText = listItem.querySelector('span').textContent.trim();
+        q.value = selectedText;
         sugg.classList.remove('show');
         submitSearch();
       });
-      q.addEventListener('blur', () => setTimeout(()=>sugg.classList.remove('show'), 120));
 
-      // Voice search: transcribe to input only (no auto-submit)
+      q.addEventListener('blur', () => {
+        setTimeout(() => {
+          sugg.classList.remove('show');
+          activeIndex = -1;
+        }, 120);
+      });
+
+      window.addEventListener('beforeunload', () => {
+        cleanupSuggestionScript();
+        Object.keys(window).forEach(key => {
+          if (key.startsWith('suggCallback_')) {
+            delete window[key];
+          }
+        });
+      });
+
       voice.addEventListener('click', () => {
         const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SR) { alert("Voice search isn't supported in this browser."); return; }
@@ -397,16 +537,16 @@
         }
       });
 
-      // Lens: picker and submit
       lensBtn.addEventListener('click', () => lensFile.click());
       lensFile.addEventListener('change', () => {
         if (lensFile.files && lensFile.files.length) {
-          lensForm.submit();
-          lensForm.reset();
+          setTimeout(() => {
+            lensForm.submit();
+            lensForm.reset();
+          }, 0);
         }
       });
 
-      // Drag-and-drop to Lens on the bar
       const isImage = f => f && f.type && f.type.startsWith('image/');
       const enableDropUI = () => bar.classList.add('drop-active');
       const disableDropUI = () => bar.classList.remove('drop-active');
@@ -435,7 +575,6 @@
         }
       });
 
-      // AI Mode -> Google search with UDM=50
       ai.addEventListener('click', () => {
         const v = q.value.trim();
         const base = 'https://www.google.com/search?udm=50';
