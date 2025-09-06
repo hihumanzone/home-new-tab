@@ -548,6 +548,7 @@
         function call(method, params = {}, timeout = 5000) {
           return new Promise((resolve, reject) => {
             const id = `rpc_${Date.now()}_${++reqId}`;
+            console.debug('[Home New Tab] Calling extension method:', method, 'with params:', params);
             const t = setTimeout(() => {
               pending.delete(id);
               reject(new Error('EXT timeout'));
@@ -586,16 +587,21 @@
         async function connect(attempts = 5) {
           for (let i = 0; i < attempts; i++) {
             try {
+              console.debug('[Home New Tab] Attempting extension connect, attempt', i + 1);
               const data = await call('getToolbar', {}, 4000);
+              console.debug('[Home New Tab] getToolbar response:', data);
               toolbarRootId = data?.id || null;
               connected = !!toolbarRootId;
               if (connected) {
                 try { console.debug('[Home New Tab] Extension connected, toolbar id:', toolbarRootId); } catch {}
                 return data;
               }
-            } catch {}
+            } catch (err) {
+              console.debug('[Home New Tab] Connect attempt failed:', err);
+            }
             await new Promise(r => setTimeout(r, 600));
           }
+          console.debug('[Home New Tab] All connection attempts failed');
           return null;
         }
 

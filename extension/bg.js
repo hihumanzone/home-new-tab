@@ -15,12 +15,15 @@ console.debug('[Home New Tab Ext] Background service worker active');
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || message.__ntb_bg !== true) return; // not ours
   const { id, method, params } = message;
+  console.debug('[Home New Tab Ext] Background received RPC:', method, params);
 
   const wrap = async () => {
     try {
       const result = await api(method, params || {});
+      console.debug('[Home New Tab Ext] Background RPC result:', result);
       sendResponse({ id, ok: true, result });
     } catch (err) {
+      console.debug('[Home New Tab Ext] Background RPC error:', err);
       sendResponse({ id, ok: false, error: String(err && err.message || err) });
     }
   };

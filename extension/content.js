@@ -25,13 +25,16 @@
     const data = event.data;
     if (!data || data.__ntb !== true) return;
     const { id, method, params } = data;
+    console.debug('[Home New Tab Ext] Content script received RPC:', method, params);
     try {
       chrome.runtime.sendMessage({ __ntb_bg: true, id, method, params }, (resp) => {
+        console.debug('[Home New Tab Ext] Background response:', resp);
         if (!resp) { reply(event, id, false, null, 'No response'); return; }
         if (resp.ok) reply(event, id, true, resp.result);
         else reply(event, id, false, null, resp.error);
       });
     } catch (err) {
+      console.debug('[Home New Tab Ext] Content script error:', err);
       reply(event, id, false, null, String(err && err.message || err));
     }
   });
