@@ -25,6 +25,13 @@
     const data = event.data;
     if (!data || data.__ntb !== true) return;
     const { id, method, params } = data;
+    
+    // Guard against invalid requests
+    if (!id || !method || typeof method !== 'string') {
+      console.warn('[Home New Tab Ext] Content script received invalid RPC:', data);
+      return;
+    }
+    
     console.debug('[Home New Tab Ext] Content script received RPC:', method, params);
     try {
       chrome.runtime.sendMessage({ __ntb_bg: true, id, method, params }, (resp) => {

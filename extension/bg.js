@@ -15,6 +15,13 @@ console.debug('[Home New Tab Ext] Background service worker active');
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || message.__ntb_bg !== true) return; // not ours
   const { id, method, params } = message;
+  
+  // Guard against invalid requests
+  if (!id || !method || typeof method !== 'string') {
+    console.warn('[Home New Tab Ext] Invalid RPC request:', message);
+    return;
+  }
+  
   console.debug('[Home New Tab Ext] Background received RPC:', method, params);
 
   const wrap = async () => {

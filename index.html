@@ -568,6 +568,7 @@
           const d = event.data;
           if (d && d.__ntb_ready === true) {
             // Content script is injected; attempt to connect immediately
+            console.debug('[Home New Tab] Content script ready, attempting connect');
             EXT.connect(1).then((data) => { if (data && Array.isArray(data.items)) { state.items = data.items; scImport.setAttribute('disabled','true'); render(); } });
             return;
           }
@@ -585,6 +586,7 @@
         });
 
         async function connect(attempts = 5) {
+          if (connected) return { id: toolbarRootId, items: state.items }; // already connected
           for (let i = 0; i < attempts; i++) {
             try {
               console.debug('[Home New Tab] Attempting extension connect, attempt', i + 1);
@@ -599,7 +601,7 @@
             } catch (err) {
               console.debug('[Home New Tab] Connect attempt failed:', err);
             }
-            await new Promise(r => setTimeout(r, 600));
+            if (i < attempts - 1) await new Promise(r => setTimeout(r, 600));
           }
           console.debug('[Home New Tab] All connection attempts failed');
           return null;
