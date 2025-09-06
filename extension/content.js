@@ -7,6 +7,7 @@
   if (window.__NTB_CONTENT_ACTIVE__) return; // guard for double-inject
   window.__NTB_CONTENT_ACTIVE__ = true;
   const PAGE_ORIGIN = location.origin;
+  try { console.debug('[Home New Tab Ext] content.js active on', PAGE_ORIGIN); } catch {}
 
   function reply(event, id, ok, result, error){
     try { event.source.postMessage({ __ntb: true, id, ok, result, error }, event.origin); } catch(e) {}

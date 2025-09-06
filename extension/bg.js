@@ -2,6 +2,15 @@
 
 const TARGET_URL_MATCH = 'https://home-new-tab.vercel.app/*';
 
+// If somehow executed outside an extension context, abort gracefully
+if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.id) {
+  // Not in extension context; do nothing
+  self.addEventListener && self.addEventListener('install', () => {});
+  // Exit early
+} else {
+
+console.debug('[Home New Tab Ext] Background service worker active');
+
 // RPC handler
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || message.__ntb_bg !== true) return; // not ours
@@ -108,6 +117,7 @@ async function ensureInjected(tabId){
       target: { tabId },
       files: ['content.js']
     });
+  console.debug('[Home New Tab Ext] Injected content.js into tab', tabId);
   } catch {}
 }
 
@@ -127,3 +137,5 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.runtime.onStartup.addListener(() => {
   chrome.tabs.query({ url: TARGET_URL_MATCH }, (tabs) => tabs.forEach(t => ensureInjected(t.id)));
 });
+
+} // end extension-context guard
