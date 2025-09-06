@@ -509,12 +509,10 @@
     </form>
   </div>
 
-  <!-- App scripts -->
   <script>
     (() => {
       'use strict';
 
-      // Extension bridge: talk to the new-tab extension's content script if present
       const EXT = (() => {
         const ORIGIN = location.origin;
         let reqId = 0;
@@ -525,7 +523,6 @@
         function call(method, params = {}, timeout = 5000) {
           return new Promise((resolve, reject) => {
             const id = `rpc_${Date.now()}_${++reqId}`;
-            console.debug('[Home New Tab] Calling extension method:', method, 'with params:', params);
             const t = setTimeout(() => {
               pending.delete(id);
               reject(new Error('EXT timeout'));
@@ -539,17 +536,13 @@
           });
         }
 
-        // Handle replies and broadcasts
         window.addEventListener('message', (event) => {
           if (event.source !== window) return;
           const d = event.data;
           if (d && d.__ntb_ready === true) {
-            // Content script is injected; attempt to connect immediately
-            // Content script ready; attempt to connect
             EXT.connect(1).then((data) => { if (data && Array.isArray(data.items)) { state.items = data.items; scImport.setAttribute('disabled','true'); render(); } });
             return;
           }
-          // Only process replies that include an explicit ok boolean
           if (d && d.__ntb === true && typeof d.ok === 'boolean') {
             const entry = pending.get(d.id);
             if (entry) {
@@ -558,13 +551,12 @@
               d.ok ? entry.resolve(d.result) : entry.reject(new Error(d.error || 'EXT error'));
             }
           } else if (d && d.__ntb_broadcast === true) {
-            // Live updates; debounce a refresh
             EXT._notifyChange();
           }
         });
 
         async function connect(attempts = 5) {
-          if (connected) return { id: toolbarRootId, items: state.items }; // already connected
+          if (connected) return { id: toolbarRootId, items: state.items };
           for (let i = 0; i < attempts; i++) {
             try {
               const data = await call('getToolbar', {}, 4000);
@@ -572,14 +564,12 @@
               connected = !!toolbarRootId;
               if (connected) { return data; }
             } catch (err) {
-              // ignore and retry
             }
             if (i < attempts - 1) await new Promise(r => setTimeout(r, 600));
           }
           return null;
         }
 
-        // Public API
         return {
           connect,
           isConnected: () => connected,
@@ -597,13 +587,11 @@
         };
       })();
 
-      // Utilities
       const $ = (sel, root=document) => root.querySelector(sel);
       const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
       const on = (el, evts, fn) => evts.split(' ').forEach(e => el.addEventListener(e, fn));
       const escapeHTML = (s) => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
 
-      // Search and actions (kept minimal)
       const bar = $('#bar');
       const form = $('#form');
       const q = $('#q');
@@ -655,7 +643,6 @@
           return;
         }
         
-        // Check if input is a URL
         const url = isValidUrl(v);
         if (url) {
           e.preventDefault();
@@ -740,9 +727,8 @@
         const t = li.querySelector('span').textContent.trim();
         q.value = t; sugg.classList.remove('show'); submitSearch();
       });
-      on(q, 'blur', () => setTimeout(()=>{ sugg.classList.remove('show'); activeIndex=-1; },120));
+      on(sugg, 'blur', () => setTimeout(()=>{ sugg.classList.remove('show'); activeIndex=-1; },120));
 
-      // Voice
       on(voice, 'click', () => {
         const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SR) { alert("Voice search isn't supported in this browser."); return; }
@@ -759,21 +745,15 @@
         } catch { voice.classList.remove('recording'); voice.disabled=false; }
       });
 
-      // Lens - open Google Lens website
       on(lensBtn, 'click', () => {
         window.open('https://lens.google.com/', '_blank', 'noopener');
       });
 
-      // Remove drag and drop functionality since we're not uploading images anymore
-      // The drag-and-drop for image uploads has been removed
-
-      // AI
       on(ai, 'click', () => {
         const v = q.value.trim(); const base = 'https://www.google.com/search?udm=50';
         window.location.href = v ? `${base}&q=${encodeURIComponent(v)}` : base;
       });
 
-      // ---------------- Shortcuts module ----------------
       const sc = $('#shortcuts');
       const scGrid = $('#scGrid');
       const scAdd = $('#scAdd');
@@ -804,11 +784,11 @@
       const scLocationLabel = $('#scLocationLabel');
       const btnCancel = $('#scCancel');
 
-    const store = {
+      const store = {
         key: 'shortcuts.v1',
         load() {
-      if (EXT.isConnected()) return null;
-      try {
+          if (EXT.isConnected()) return null;
+          try {
             const raw = localStorage.getItem(this.key);
             if (!raw) return null;
             const parsed = JSON.parse(raw);
@@ -816,8 +796,8 @@
           } catch { return null; }
         },
         save(items) {
-      if (EXT.isConnected()) return; // Extension is source of truth
-      try { localStorage.setItem(this.key, JSON.stringify({ items })); } catch {}
+          if (EXT.isConnected()) return;
+          try { localStorage.setItem(this.key, JSON.stringify({ items })); } catch {}
         },
         export(items) {
           const payload = { version: 1, exportedAt: new Date().toISOString(), items };
@@ -853,12 +833,11 @@
 
       const state = {
         items: store.load() || defaultItems(),
-        edit: false,       // root grid edit mode
-        folderEdit: false, // folder overlay edit mode
+        edit: false,
+        folderEdit: false,
         folderOpen: null
       };
 
-      // Extension-backed refresh: fetch bookmark bar and render
       async function refreshFromExtension() {
         try {
           const data = await EXT.getToolbar();
@@ -868,10 +847,8 @@
           }
         } catch {}
       }
-      // Expose for debounced broadcasts
       window.__extRefresh = refreshFromExtension;
 
-      // Helpers
       const findById = (id, list=state.items, parent=null) => {
         for (let i=0;i<list.length;i++) {
           const item = list[i];
@@ -896,7 +873,6 @@
       };
       const faviconFor = (url) => { try { const u = new URL(url); return `https://www.google.com/s2/favicons?sz=64&domain_url=${encodeURIComponent(u.origin)}`; } catch { return ''; } };
 
-      // Icons
       const deleteIcon = `
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M3 6h18"/>
@@ -911,7 +887,6 @@
         </svg>
       `;
 
-      // Render
       const tileHTML = (it, idx, editable=false) => {
         if (it.type === 'folder') {
           const count = (it.children || []).length;
@@ -986,8 +961,7 @@
         store.save(state.items);
       };
 
-      // Folder open/close
-  const openFolder = (folderId) => {
+      const openFolder = (folderId) => {
         const f = findById(folderId)?.item;
         if (!f || f.type !== 'folder') return;
         state.folderOpen = folderId;
@@ -1006,7 +980,6 @@
         render();
       };
 
-      // Dialog state
       let dialogState = { mode: 'link', editId: null };
 
       const buildLocationOptions = () => {
@@ -1055,7 +1028,6 @@
         else openDialog('link', { title: it.title, url: it.url }, it.id);
       };
 
-      // Click handlers (root grid)
       on(scGrid, 'click', async (e) => {
         const tile = e.target.closest('.tile'); if (!tile) return;
         const rm = e.target.closest('.remove');
@@ -1078,7 +1050,6 @@
         else if (type === 'link') window.open(found.url, (e.metaKey||e.ctrlKey)?'_blank':'_self', 'noopener');
       });
 
-      // Click handlers (folder grid)
       on(fvGrid, 'click', async (e) => {
         const tile = e.target.closest('.tile'); if (!tile) return;
         const rm = e.target.closest('.remove');
@@ -1101,7 +1072,6 @@
         else if (type === 'link') window.open(found.url, (e.metaKey||e.ctrlKey)?'_blank':'_self', 'noopener');
       });
 
-      // DnD (reorder + move into folder)
       let dragInfo = null;
       const isGridEditable = (grid) => (grid === scGrid ? state.edit : state.folderEdit);
 
@@ -1223,17 +1193,14 @@
       attachDnD(scGrid);
       attachDnD(fvGrid);
 
-      // Top bar buttons
-  on(scAdd, 'click', () => openDialog('link'));
-  on(scAddFolder, 'click', () => openDialog('folder')); // always top-level
+      on(scAdd, 'click', () => openDialog('link'));
+  on(scAddFolder, 'click', () => openDialog('folder'));
       on(scEdit, 'click', () => { state.edit = !state.edit; render(); });
 
-      // Folder controls
       on(fvBack, 'click', closeFolder);
       on(fvAdd, 'click', () => openDialog('link', { location: state.folderOpen }));
       on(fvToggleEdit, 'click', () => { state.folderEdit = !state.folderEdit; render(); });
 
-      // Dialog interactions
       on(overlay, 'click', closeDialog);
       on(btnCancel, 'click', closeDialog);
       on(scForm, 'submit', async (e) => {
@@ -1241,7 +1208,6 @@
         const title = inputTitle.value.trim();
         const mode = dialogState.mode;
 
-        // Edit existing
         if (dialogState.editId) {
           const found = findById(dialogState.editId);
           if (!found) { closeDialog(); return; }
@@ -1255,7 +1221,6 @@
             closeDialog(); return;
           }
 
-          // Edit link + Move to...
           let url = inputUrl.value.trim();
           try {
             if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
@@ -1294,7 +1259,6 @@
           closeDialog(); return;
         }
 
-        // Create new
         if (mode === 'link') {
           let url = inputUrl.value.trim();
           if (!url) return;
@@ -1317,7 +1281,6 @@
             }
           }
         } else {
-          // New folder: always top-level
           const name = title || 'New folder';
           if (EXT.isConnected()) {
             try { await EXT.createFolder({ parentId: EXT.getToolbarRootId(), title: name }); await refreshFromExtension(); } catch {}
@@ -1331,7 +1294,6 @@
         inputTitle.value = ''; inputUrl.value = '';
       });
 
-      // Import/Export
       const sanitizeImport = (input) => {
         const out = [];
         const seen = new Set();
@@ -1358,7 +1320,6 @@
                 const link = addLink(ch.title, ch.url);
                 if (link) folder.children.push(link);
               } else if (ch?.type === 'folder' && Array.isArray(ch.children)) {
-                // Flatten nested folders: keep their links
                 for (const sub of ch.children) {
                   if (sub?.type === 'link') {
                     const link = addLink(sub.title, sub.url);
@@ -1401,7 +1362,6 @@
         }
       });
 
-      // Keyboard: ESC closes folder or dialog
       on(document, 'keydown', (e) => {
         if (e.key === 'Escape') {
           if (dialog.classList.contains('show')) { closeDialog(); return; }
@@ -1409,9 +1369,7 @@
         }
       });
 
-      // Auto-focus search input
       const focusSearch = () => {
-        // Small delay to ensure everything is loaded
         setTimeout(() => {
           if (q && typeof q.focus === 'function') {
             q.focus();
@@ -1419,36 +1377,29 @@
         }, 100);
       };
 
-      // Focus on page load
       on(window, 'load', focusSearch);
       
-      // Focus when switching back to tab (page becomes visible)
       on(document, 'visibilitychange', () => {
         if (!document.hidden) {
           focusSearch();
         }
       });
 
-      // Also focus immediately when DOM is ready (in case load event already fired)
       if (document.readyState === 'complete') {
         focusSearch();
       }
 
-      // Init: attempt to connect to extension; if connected, load bookmarks, else fallback to local
       (async () => {
         const data = await EXT.connect();
         if (data && Array.isArray(data.items)) {
           state.items = data.items;
-          // Disable import UI when syncing
           scImport.setAttribute('disabled', 'true');
           render();
-          // Tiny connection indicator (non-intrusive)
           try { const el = document.createElement('div'); el.style.cssText='position:fixed;right:8px;bottom:8px;font:12px system-ui;color:#8bbdff;opacity:.6;user-select:none;'; el.textContent='Synced with Bookmarks'; document.body.appendChild(el); setTimeout(()=>el.remove(), 3000); } catch {}
         } else {
           render();
         }
         
-        // Focus search after initialization
         focusSearch();
       })();
     })();
