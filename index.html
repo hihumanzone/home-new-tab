@@ -1366,6 +1366,31 @@
         }
       });
 
+      // Auto-focus search input
+      const focusSearch = () => {
+        // Small delay to ensure everything is loaded
+        setTimeout(() => {
+          if (q && typeof q.focus === 'function') {
+            q.focus();
+          }
+        }, 100);
+      };
+
+      // Focus on page load
+      on(window, 'load', focusSearch);
+      
+      // Focus when switching back to tab (page becomes visible)
+      on(document, 'visibilitychange', () => {
+        if (!document.hidden) {
+          focusSearch();
+        }
+      });
+
+      // Also focus immediately when DOM is ready (in case load event already fired)
+      if (document.readyState === 'complete') {
+        focusSearch();
+      }
+
       // Init: attempt to connect to extension; if connected, load bookmarks, else fallback to local
       (async () => {
         const data = await EXT.connect();
@@ -1379,6 +1404,9 @@
         } else {
           render();
         }
+        
+        // Focus search after initialization
+        focusSearch();
       })();
     })();
   </script>
