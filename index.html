@@ -411,16 +411,14 @@
           </svg>
         </button>
 
-  <form id="lensForm" action="https://www.google.com/searchbyimage/upload" method="POST" enctype="multipart/form-data" target="_blank" referrerpolicy="no-referrer" style="display:contents">
-          <input id="lensFile" type="file" name="encoded_image" accept="image/*" style="display:none" />
-          <button id="lensBtn" class="btn lens" type="button" title="Search with an image" aria-label="Search with an image">
-            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3.75" y="3.75" width="16.5" height="16.5" rx="5"/>
-              <circle cx="12" cy="12" r="4.25"/>
-              <circle cx="15.8" cy="8.2" r="1.1" fill="currentColor" stroke="none" />
-            </svg>
-          </button>
-        </form>
+        <input id="lensFile" type="file" accept="image/*" style="display:none" />
+        <button id="lensBtn" class="btn lens" type="button" title="Search with an image" aria-label="Search with an image">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3.75" y="3.75" width="16.5" height="16.5" rx="5"/>
+            <circle cx="12" cy="12" r="4.25"/>
+            <circle cx="15.8" cy="8.2" r="1.1" fill="currentColor" stroke="none" />
+          </svg>
+        </button>
 
         <button id="ai" class="btn ai" type="button" title="AI Mode" aria-label="AI Mode">
           <svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -634,7 +632,6 @@
       const voice = $('#voice');
       const lensBtn = $('#lensBtn');
       const lensFile = $('#lensFile');
-      const lensForm = $('#lensForm');
       const ai = $('#ai');
       const sugg = $('#sugg');
 
@@ -741,11 +738,55 @@
         } catch { voice.classList.remove('recording'); voice.disabled=false; }
       });
 
-      // Lens
+      // Lens - Convert image to base64 and redirect to Google Images
+      const searchWithImage = async (file) => {
+        try {
+          // Create a canvas to compress the image
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          const img = new Image();
+          
+          return new Promise((resolve, reject) => {
+            img.onload = () => {
+              // Resize image to reasonable dimensions (max 800px)
+              const maxSize = 800;
+              let { width, height } = img;
+              
+              if (width > height && width > maxSize) {
+                height = (height * maxSize) / width;
+                width = maxSize;
+              } else if (height > maxSize) {
+                width = (width * maxSize) / height;
+                height = maxSize;
+              }
+              
+              canvas.width = width;
+              canvas.height = height;
+              ctx.drawImage(img, 0, 0, width, height);
+              
+              // Convert to base64 with reasonable quality
+              const dataURL = canvas.toDataURL('image/jpeg', 0.8);
+              
+              // Open Google Images with the image
+              const searchURL = `https://www.google.com/searchbyimage?image_url=${encodeURIComponent(dataURL)}`;
+              window.open(searchURL, '_blank', 'noopener');
+              resolve();
+            };
+            
+            img.onerror = () => reject(new Error('Failed to load image'));
+            img.src = URL.createObjectURL(file);
+          });
+        } catch (error) {
+          console.error('Image search error:', error);
+          alert('Failed to process image. Please try again.');
+        }
+      };
+
       on(lensBtn, 'click', () => lensFile.click());
-      on(lensFile, 'change', () => {
+      on(lensFile, 'change', async () => {
         if (lensFile.files && lensFile.files.length) {
-          setTimeout(()=>{ lensForm.submit(); lensForm.reset(); },0);
+          await searchWithImage(lensFile.files[0]);
+          lensFile.value = ''; // Reset file input
         }
       });
 
@@ -759,14 +800,11 @@
         }
       });
       on(bar, 'dragleave dragend', disableDropUI);
-      on(bar, 'drop', (e) => {
+      on(bar, 'drop', async (e) => {
         e.preventDefault(); e.stopPropagation(); disableDropUI();
         const files = e.dataTransfer?.files;
         if (!files || !files.length || !isImage(files[0])) return;
-        try {
-          const dt = new DataTransfer(); dt.items.add(files[0]); lensFile.files = dt.files;
-          lensForm.submit(); lensForm.reset();
-        } catch { lensFile.click(); }
+        await searchWithImage(files[0]);
       });
 
       // AI
