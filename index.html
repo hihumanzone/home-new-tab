@@ -613,13 +613,56 @@
       const ai = $('#ai');
       const sugg = $('#sugg');
 
+      const isValidUrl = (str) => {
+        try {
+          // Check if it's already a complete URL
+          if (/^https?:\/\//i.test(str)) {
+            new URL(str);
+            return str;
+          }
+          // Check if it looks like a domain (contains a dot and valid characters)
+          if (/^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}([\/\w\.-]*)*\/?$/.test(str)) {
+            const url = 'https://' + str;
+            new URL(url);
+            return url;
+          }
+          return null;
+        } catch {
+          return null;
+        }
+      };
+
       const submitSearch = () => {
         const v = q.value.trim();
         if (!v) { q.focus(); return; }
+        
+        // Check if input is a URL
+        const url = isValidUrl(v);
+        if (url) {
+          window.location.href = url;
+          return;
+        }
+        
+        // Otherwise, perform Google search
         form.submit();
       };
       on(go, 'click', submitSearch);
-      on(form, 'submit', (e) => { if (!q.value.trim()) { e.preventDefault(); q.focus(); } });
+      on(form, 'submit', (e) => { 
+        const v = q.value.trim();
+        if (!v) { 
+          e.preventDefault(); 
+          q.focus(); 
+          return;
+        }
+        
+        // Check if input is a URL
+        const url = isValidUrl(v);
+        if (url) {
+          e.preventDefault();
+          window.location.href = url;
+          return;
+        }
+      });
 
       const SUGGESTIONS_CONFIG = { maxItems: 8, timeout: 3000, fallbackSuggestions: ["news","weather","maps","translate","time","calculator","currency converter","nearby restaurants","youtube","gmail"] };
       let activeIndex = -1, lastQuery = '';
