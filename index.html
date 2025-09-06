@@ -24,6 +24,11 @@
 
       --dock-top: 6vh;
       --bar-h: 60px;
+
+      /* Shortcuts */
+      --tile: 94px;
+      --tile-gap: 10px;
+      --tile-radius: 16px;
     }
 
     /* Base */
@@ -80,7 +85,6 @@
       box-shadow: 0 0 0 2px rgba(106,163,255,.5), var(--shadow-strong);
       transform: translateZ(0);
     }
-
     .bar:focus-within { box-shadow: var(--shadow); }
     .bar *:focus,
     .bar *:focus-visible { outline: none !important; box-shadow: none !important; }
@@ -189,6 +193,197 @@
     .s-icon { width: 18px; height: 18px; opacity: .7; }
 
     @media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
+
+    /* Shortcuts */
+    .shortcuts {
+      position: fixed;
+      top: calc(var(--dock-top) + var(--bar-h) + 18px);
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(900px, calc(100vw - 2rem));
+      background: rgba(16,14,15,.82);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px) saturate(120%);
+      padding: 10px 12px 12px;
+      z-index: 5;
+      user-select: none;
+    }
+    .shortcuts .sc-bar{
+      display:flex; align-items:center; justify-content:space-between;
+      gap:10px; padding: 2px 2px 8px;
+    }
+    .shortcuts .sc-title{
+      font-size:.9rem; color:var(--ink-dim); letter-spacing:.02em;
+      opacity:.85;
+    }
+    .shortcuts .sc-actions{
+      display:flex; align-items:center; gap:6px;
+      background: var(--bg-elev);
+      border-radius: 999px;
+      padding: 3px;
+    }
+    .btn.tiny{ width:32px; height:32px; }
+
+    .tiles{
+      display:grid;
+      grid-template-columns: repeat(auto-fill, minmax(var(--tile), 1fr));
+      gap: var(--tile-gap);
+      margin: 0; padding: 0; list-style: none; /* alignment fix: remove default ul spacing */
+    }
+    .tile{
+      position:relative;
+      background: var(--btn);
+      border: 1px solid rgba(255,255,255,.04);
+      border-radius: var(--tile-radius);
+      height: var(--tile);
+      padding: 8px 8px;
+      display:grid;
+      grid-template-rows: 1fr auto;
+      align-items:center; justify-items:center;
+      cursor:pointer;
+      transition: background-color .12s ease, transform .12s ease;
+    }
+    .tile:hover{ background: var(--btn-hover); }
+    .tile.dragging{ opacity: .5; }
+    .tile .favicon{
+      width: 28px; height: 28px; border-radius: 6px;
+      background: #2a2a2c; display:grid; place-items:center;
+      overflow:hidden;
+    }
+    .tile .favicon img{ width:100%; height:100%; object-fit:cover; display:block; }
+    .tile .label{
+      width: 100%;
+      font-size: .78rem; color: var(--ink); opacity: .96;
+      text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+
+    /* In-tile actions (Edit + Delete) */
+    .tile .action{
+      position:absolute; top:6px;
+      width: 24px; height: 24px;
+      display:none; place-items:center;
+      border-radius: 8px;
+      background: var(--btn);
+      border: 1px solid rgba(255,255,255,.06);
+      color: var(--ink);
+      cursor: pointer;
+      transition: background-color .12s ease, opacity .12s ease, transform .12s ease;
+    }
+    .tile .action:hover{ background: var(--btn-hover); }
+    .tile .edit{ right: 34px; }
+    .tile .remove{ right: 6px; }
+    .tile .action svg{
+      width: 14px; height: 14px; display:block;
+      stroke-linecap: round; stroke-linejoin: round;
+    }
+    .shortcuts.edit .tile .action,
+    .folder-view.edit .tile .action { display:grid; }
+
+    /* Folder tile icon */
+    .tile.folder .favicon { background: transparent; }
+    .tile.folder .folder-ico{
+      width: 28px; height: 28px; display:grid; place-items:center;
+    }
+    .tile.folder .folder-ico svg{
+      width: 26px; height: 26px; opacity: .95;
+    }
+    .tile.folder .count{
+      position:absolute; bottom:6px; right:6px;
+      font-size:.7rem; color: var(--ink-dim); opacity:.8;
+    }
+
+    /* Folder view overlay */
+    .folder-view{
+      position:absolute; inset: 8px;
+      background: rgba(18,17,18,.95);
+      border-radius: 16px;
+      box-shadow: var(--shadow-strong);
+      display:none;
+      grid-template-rows: auto 1fr;
+      padding: 10px;
+      z-index: 6;
+      overflow: hidden;
+    }
+    .folder-view.show{ display:grid; }
+    .folder-view .fv-bar{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      padding: 2px 2px 8px;
+    }
+    .folder-view .fv-left{
+      display:flex; align-items:center; gap:8px;
+    }
+    .folder-view .fv-title{
+      font-size:.95rem; color: var(--ink); font-weight:600; letter-spacing:.02em;
+    }
+    .folder-view .fv-actions{
+      display:flex; align-items:center; gap:6px;
+      background: var(--bg-elev);
+      border-radius: 999px;
+      padding: 3px;
+    }
+    .folder-view .fv-grid{
+      overflow: auto; /* internal scroll */
+      -webkit-overflow-scrolling: touch;
+      display:grid;
+      grid-template-columns: repeat(auto-fill, minmax(var(--tile), 1fr));
+      gap: var(--tile-gap);
+      margin: 0; padding: 0; list-style: none; /* alignment fix inside folder */
+    }
+
+    /* Dialog + overlay */
+    .overlay{
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.4);
+      backdrop-filter: blur(1px);
+      display:none; z-index: 20;
+    }
+    .overlay.show{ display:block; }
+    .sc-dialog{
+      position: fixed; left: 50%; top: 50%;
+      transform: translate(-50%,-50%);
+      width: min(420px, calc(100vw - 2rem));
+      background: rgba(18,17,18,.95);
+      border-radius: 18px;
+      box-shadow: var(--shadow-strong);
+      padding: 14px;
+      display:none; z-index: 21;
+    }
+    .sc-dialog.show{ display:block; }
+    .sc-dialog h3{
+      margin: 6px 4px 12px; font-size: 1rem; font-weight: 600;
+      color: var(--ink);
+    }
+    .sc-dialog .row{
+      display:flex; flex-direction:column; gap:6px; margin: 10px 4px;
+    }
+    .sc-dialog label{ font-size:.85rem; color: var(--ink-dim); }
+    .sc-dialog input, .sc-dialog select{
+      height: 38px; border-radius: 10px; border: 1px solid rgba(255,255,255,.06);
+      background: #1b191c; color: var(--ink); padding: 0 10px;
+      outline:none;
+    }
+    .sc-dialog .actions{
+      display:flex; justify-content:flex-end; gap:8px; margin-top: 12px;
+    }
+    .sc-dialog .btn{
+      width: auto; min-width: 88px;
+      height: 36px; padding: 0 14px;
+      display: inline-flex; align-items: center; justify-content: center;
+      white-space: nowrap;
+    }
+    .sc-dialog .btn.primary{
+      background: #2b2a2f; color: var(--ink); border-radius: 10px;
+    }
+    .sc-dialog .btn.ghost{
+      background: transparent; border: 1px solid rgba(255,255,255,.08);
+      color: var(--ink); border-radius: 10px;
+    }
+
+    @media (max-width: 520px){
+      :root { --tile: 86px; }
+      .shortcuts { width: min(680px, calc(100vw - 1.5rem)); }
+    }
   </style>
 </head>
 <body>
@@ -202,14 +397,12 @@
 
       <!-- Actions -->
       <div class="actions" aria-label="Quick actions">
-        <!-- Submit (click or Enter) -->
-        <button id="go" class="btn go" type="button" title="Search">
+        <button id="go" class="btn go" type="button" title="Search" aria-label="Search">
           <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M3 12h18M12 3l9 9-9 9"></path>
           </svg>
         </button>
 
-        <!-- Voice (fills input only) -->
         <button id="voice" class="btn voice" type="button" title="Search by voice" aria-label="Search by voice">
           <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none">
             <rect x="9" y="3" width="6" height="10" rx="3" fill="currentColor"/>
@@ -218,7 +411,6 @@
           </svg>
         </button>
 
-        <!-- Lens (balanced icon) -->
         <form id="lensForm" action="https://lens.google.com/upload?ep=ccm" method="POST" enctype="multipart/form-data" target="_blank" style="display:contents">
           <input id="lensFile" type="file" name="encoded_image" accept="image/*" style="display:none" />
           <button id="lensBtn" class="btn lens" type="button" title="Search with an image" aria-label="Search with an image">
@@ -230,8 +422,7 @@
           </button>
         </form>
 
-        <!-- AI Mode (right-most) -->
-        <button id="ai" class="btn ai" type="button" title="AI Mode">
+        <button id="ai" class="btn ai" type="button" title="AI Mode" aria-label="AI Mode">
           <svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="11" cy="11" r="6"></circle>
             <path d="M16 16l5 5"></path>
@@ -239,21 +430,120 @@
         </button>
       </div>
 
-      <!-- Drag-and-drop overlay hint -->
       <div class="drop-hint">Drop an image to search with Google Lens</div>
     </div>
 
-    <!-- Suggestions live under the fixed bar -->
+    <!-- Suggestions -->
     <ul id="sugg" class="suggest" role="listbox" aria-label="Search suggestions"></ul>
   </div>
 
+  <!-- Shortcuts -->
+  <section id="shortcuts" class="shortcuts" aria-label="Shortcuts">
+    <div class="sc-bar">
+      <div class="sc-title">Shortcuts</div>
+      <div class="sc-actions">
+        <button id="scAdd" class="btn tiny" title="Add shortcut" aria-label="Add shortcut">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 5v14M5 12h14"/>
+          </svg>
+        </button>
+        <button id="scAddFolder" class="btn tiny" title="New folder" aria-label="New folder">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 7h6l2 2h10v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <path d="M12 11v6M9 14h6"/>
+          </svg>
+        </button>
+
+        <!-- Import/Export -->
+        <button id="scExport" class="btn tiny" title="Export shortcuts" aria-label="Export shortcuts">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 3v10"></path>
+            <path d="M7 8l5-5 5 5"></path>
+            <path d="M5 21h14a2 2 0 0 0 2-2v-5"></path>
+          </svg>
+        </button>
+        <button id="scImport" class="btn tiny" title="Import shortcuts" aria-label="Import shortcuts">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 21V11"></path>
+            <path d="M17 16l-5 5-5-5"></path>
+            <path d="M19 3H5a2 2 0 0 0-2 2v5"></path>
+          </svg>
+        </button>
+        <input id="scImportFile" type="file" accept="application/json,.json" style="display:none" />
+
+        <button id="scEdit" class="btn tiny" title="Reorder / delete" aria-label="Edit" aria-pressed="false">
+          <svg id="scEditIcon" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 21h4l11-11a2.5 2.5 0 0 0-4-4L4 17v4z"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <ul id="scGrid" class="tiles" role="list"></ul>
+
+    <!-- Folder overlay -->
+    <div id="folderView" class="folder-view" aria-hidden="true">
+      <div class="fv-bar">
+        <div class="fv-left">
+          <button id="fvBack" class="btn tiny" title="Close folder" aria-label="Close folder">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M15 18l-6-6 6-6"/>
+            </svg>
+          </button>
+          <div id="fvTitle" class="fv-title">Folder</div>
+        </div>
+        <div class="fv-actions">
+          <button id="fvToggleEdit" class="btn tiny" title="Edit shortcuts in this folder" aria-label="Edit folder contents" aria-pressed="false">
+            <svg id="fvToggleIcon" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 21h4l11-11a2.5 2.5 0 0 0-4-4L4 17v4z"></path>
+            </svg>
+          </button>
+          <button id="fvAdd" class="btn tiny" title="Add shortcut to folder" aria-label="Add shortcut">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 5v14M5 12h14"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <ul id="fvGrid" class="fv-grid" role="list"></ul>
+    </div>
+  </section>
+
+  <!-- Dialog + overlay -->
+  <div id="scOverlay" class="overlay" aria-hidden="true"></div>
+  <div id="scDialog" class="sc-dialog" role="dialog" aria-modal="true" aria-labelledby="scDialogTitle">
+    <h3 id="scDialogTitle">Add shortcut</h3>
+    <form id="scForm" autocomplete="off">
+      <div class="row">
+        <label for="scTitle">Name</label>
+        <input id="scTitle" name="title" type="text" placeholder="e.g., YouTube" />
+      </div>
+      <div class="row" id="rowUrl">
+        <label for="scUrl">URL</label>
+        <input id="scUrl" name="url" type="url" placeholder="https://example.com" inputmode="url" />
+      </div>
+      <div class="row" id="rowLocation">
+        <label id="scLocationLabel" for="scLocation">Add to</label>
+        <select id="scLocation" name="location"></select>
+      </div>
+      <div class="actions">
+        <button type="button" id="scCancel" class="btn ghost">Cancel</button>
+        <button type="submit" class="btn primary">Save</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- App scripts -->
   <script>
     (() => {
       'use strict';
-      
-      const $ = (sel, root=document) => root.querySelector(sel);
-      const on = (el, evts, fn) => evts.split(' ').forEach(e => el.addEventListener(e, fn));
 
+      // Utilities
+      const $ = (sel, root=document) => root.querySelector(sel);
+      const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+      const on = (el, evts, fn) => evts.split(' ').forEach(e => el.addEventListener(e, fn));
+      const escapeHTML = (s) => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+
+      // Search and actions (kept minimal)
       const bar = $('#bar');
       const form = $('#form');
       const q = $('#q');
@@ -270,324 +560,697 @@
         if (!v) { q.focus(); return; }
         form.submit();
       };
-      go.addEventListener('click', submitSearch);
-      form.addEventListener('submit', (e) => {
-        if (!q.value.trim()) { e.preventDefault(); q.focus(); }
+      on(go, 'click', submitSearch);
+      on(form, 'submit', (e) => { if (!q.value.trim()) { e.preventDefault(); q.focus(); } });
+
+      const SUGGESTIONS_CONFIG = { maxItems: 8, timeout: 3000, fallbackSuggestions: ["news","weather","maps","translate","time","calculator","currency converter","nearby restaurants","youtube","gmail"] };
+      let activeIndex = -1, lastQuery = '';
+
+      const cleanupSuggestionScript = () => { const s = document.querySelector('#suggestions-script'); if (s) s.remove(); };
+      const getFallbackSuggestions = (text) => SUGGESTIONS_CONFIG.fallbackSuggestions.filter(s => s.includes((text||'').toLowerCase())).slice(0, SUGGESTIONS_CONFIG.maxItems);
+      const fetchSuggestions = async (text) => new Promise((resolve) => {
+        try {
+          cleanupSuggestionScript();
+          const cb = `suggCallback_${Date.now()}_${Math.random().toString(36).slice(2,9)}`;
+          window[cb] = (data) => { try { delete window[cb]; cleanupSuggestionScript(); resolve(Array.isArray(data?.[1]) ? data[1] : []); } catch { resolve([]); } };
+          const script = document.createElement('script');
+          script.id = 'suggestions-script';
+          script.src = `https://suggestqueries.google.com/complete/search?client=firefox&hl=en&callback=${cb}&q=${encodeURIComponent(text)}`;
+          script.onerror = () => { delete window[cb]; cleanupSuggestionScript(); resolve(getFallbackSuggestions(text)); };
+          document.head.appendChild(script);
+          setTimeout(() => { if (window[cb]) { delete window[cb]; cleanupSuggestionScript(); resolve(getFallbackSuggestions(text)); } }, SUGGESTIONS_CONFIG.timeout);
+        } catch { resolve(getFallbackSuggestions(text)); }
       });
 
-      const SUGGESTIONS_CONFIG = {
-        maxItems: 8,
-        timeout: 3000,
-        fallbackSuggestions: [
-          "news", "weather", "maps", "translate", "time", 
-          "calculator", "currency converter", "nearby restaurants", 
-          "youtube", "gmail"
-        ]
-      };
-
-      let activeIndex = -1;
-      let lastQuery = '';
-
-      const cleanupSuggestionScript = () => {
-        const existingScript = document.querySelector('#suggestions-script');
-        if (existingScript) {
-          existingScript.remove();
-        }
-      };
-
-      const getFallbackSuggestions = (text) => {
-        const query = text.toLowerCase();
-        return SUGGESTIONS_CONFIG.fallbackSuggestions
-          .filter(suggestion => suggestion.includes(query))
-          .slice(0, SUGGESTIONS_CONFIG.maxItems);
-      };
-
-      const fetchSuggestions = async (text) => {
-        return new Promise((resolve) => {
-          try {
-            cleanupSuggestionScript();
-
-            const callbackName = `suggCallback_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            
-            window[callbackName] = (data) => {
-              try {
-                delete window[callbackName];
-                cleanupSuggestionScript();
-                
-                const suggestions = Array.isArray(data?.[1]) ? data[1] : [];
-                resolve(suggestions);
-              } catch (error) {
-                console.warn('Error processing suggestions:', error);
-                resolve([]);
-              }
-            };
-
-            const script = document.createElement('script');
-            script.id = 'suggestions-script';
-            script.src = `https://suggestqueries.google.com/complete/search?client=firefox&hl=en&callback=${callbackName}&q=${encodeURIComponent(text)}`;
-            
-            script.onerror = () => {
-              delete window[callbackName];
-              cleanupSuggestionScript();
-              console.warn('Failed to load suggestions from Google API, using fallback');
-              resolve(getFallbackSuggestions(text));
-            };
-
-            document.head.appendChild(script);
-
-            setTimeout(() => {
-              if (window[callbackName]) {
-                delete window[callbackName];
-                cleanupSuggestionScript();
-                console.warn('Suggestions request timed out, using fallback');
-                resolve(getFallbackSuggestions(text));
-              }
-            }, SUGGESTIONS_CONFIG.timeout);
-
-          } catch (error) {
-            console.warn('Error fetching suggestions:', error);
-            resolve(getFallbackSuggestions(text));
-          }
-        });
-      };
-
       const renderSuggestions = (items) => {
-        if (!items || items.length === 0) {
-          sugg.classList.remove('show');
-          sugg.innerHTML = '';
-          return;
-        }
-
-        const suggestionItems = items
-          .slice(0, SUGGESTIONS_CONFIG.maxItems)
-          .map((text, index) => {
-            const escapedText = text.replace(/"/g, '&quot;').replace(/</g, '&lt;');
-            return `
-              <li role="option" data-index="${index}" aria-selected="false" title="${escapedText}">
-                <svg class="s-icon" viewBox="0 0 24 24" aria-hidden="true">
-                  <circle cx="11" cy="11" r="6" fill="currentColor" />
-                </svg>
-                <span>${escapedText}</span>
-              </li>
-            `;
-          })
-          .join('');
-
-        sugg.innerHTML = suggestionItems;
-        activeIndex = -1;
-        sugg.classList.add('show');
+        if (!items || !items.length) { sugg.classList.remove('show'); sugg.innerHTML=''; return; }
+        const safe = (t) => t.replace(/"/g,'&quot;').replace(/</g,'&lt;');
+        sugg.innerHTML = items.slice(0, SUGGESTIONS_CONFIG.maxItems).map((t,i)=>`
+          <li role="option" data-index="${i}" aria-selected="false" title="${safe(t)}">
+            <svg class="s-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6" fill="currentColor" /></svg>
+            <span>${safe(t)}</span>
+          </li>`).join('');
+        activeIndex = -1; sugg.classList.add('show');
       };
-
-      const debounce = (fn, delay = 120) => {
-        let timeoutId;
-        return (...args) => {
-          clearTimeout(timeoutId);
-          timeoutId = setTimeout(() => fn(...args), delay);
-        };
-      };
-
+      const debounce = (fn, d=120) => { let id; return (...args)=>{ clearTimeout(id); id=setTimeout(()=>fn(...args), d); }; };
       const updateSuggestions = debounce(async (text) => {
-        const trimmedText = text.trim();
-        
-        if (!trimmedText) {
-          sugg.classList.remove('show');
-          sugg.innerHTML = '';
-          lastQuery = '';
-          return;
-        }
-
-        if (trimmedText === lastQuery) {
-          return;
-        }
-
-        lastQuery = trimmedText;
-        
-        try {
-          const suggestions = await fetchSuggestions(trimmedText);
-          renderSuggestions(suggestions);
-        } catch (error) {
-          console.warn('Failed to update suggestions:', error);
-          renderSuggestions(getFallbackSuggestions(trimmedText));
-        }
+        const v = (text||'').trim();
+        if (!v) { sugg.classList.remove('show'); sugg.innerHTML=''; lastQuery=''; return; }
+        if (v === lastQuery) return;
+        lastQuery = v;
+        try { renderSuggestions(await fetchSuggestions(v)); } catch { renderSuggestions(getFallbackSuggestions(v)); }
       }, 120);
 
       const setActive = (idx) => {
         const items = Array.from(sugg.querySelectorAll('li'));
         if (!items.length) { activeIndex = -1; return; }
-        items.forEach((li, i) => {
-          const active = i === idx;
-          li.classList.toggle('active', active);
-          li.setAttribute('aria-selected', active ? 'true' : 'false');
-        });
-        activeIndex = idx;
-        if (idx >= 0) items[idx].scrollIntoView({ block: 'nearest' });
+        items.forEach((li,i)=>{ const a=i===idx; li.classList.toggle('active',a); li.setAttribute('aria-selected', a?'true':'false'); });
+        activeIndex = idx; if (idx>=0) items[idx].scrollIntoView({block:'nearest'});
       };
-
       function handleSuggestionKeyboard(e) {
         const items = Array.from(sugg.querySelectorAll('li'));
-        const isOpen = sugg.classList.contains('show') && items.length > 0;
-
+        const isOpen = sugg.classList.contains('show') && items.length>0;
         switch (e.key) {
           case 'ArrowDown':
-            if (!isOpen) {
-              if (q.value.trim()) updateSuggestions(q.value);
-            } else {
-              const next = (activeIndex + 1) % items.length;
-              setActive(next);
-            }
-            e.preventDefault();
-            break;
+            if (!isOpen) { if (q.value.trim()) updateSuggestions(q.value); }
+            else setActive((activeIndex+1)%items.length);
+            e.preventDefault(); break;
           case 'ArrowUp':
-            if (isOpen) {
-              const next = activeIndex <= 0 ? items.length - 1 : activeIndex - 1;
-              setActive(next);
-              e.preventDefault();
-            }
+            if (isOpen) { setActive(activeIndex<=0?items.length-1:activeIndex-1); e.preventDefault(); }
             break;
           case 'Enter':
-            if (isOpen && activeIndex >= 0) {
-              const selected = items[activeIndex].querySelector('span')?.textContent?.trim();
-              if (selected) q.value = selected;
-              sugg.classList.remove('show');
-              activeIndex = -1;
-              e.preventDefault();
-              submitSearch();
-            }
-            break;
+            if (isOpen && activeIndex>=0) {
+              const t = items[activeIndex].querySelector('span')?.textContent?.trim();
+              if (t) q.value=t;
+              sugg.classList.remove('show'); activeIndex=-1; e.preventDefault(); submitSearch();
+            } break;
           case 'Escape':
-            if (isOpen) {
-              sugg.classList.remove('show');
-              activeIndex = -1;
-              e.preventDefault();
-            }
+            if (isOpen) { sugg.classList.remove('show'); activeIndex=-1; e.preventDefault(); }
             break;
         }
       }
 
-      q.addEventListener('input', (event) => {
-        updateSuggestions(event.target.value);
+      on(q, 'input', (e)=> updateSuggestions(e.target.value));
+      on(q, 'focus', () => { const v=q.value.trim(); if (v) updateSuggestions(v); });
+      on(q, 'keydown', handleSuggestionKeyboard);
+      on(sugg, 'mousedown', (e)=> e.preventDefault());
+      on(sugg, 'click', (e) => {
+        const li = e.target.closest('li'); if (!li) return;
+        const t = li.querySelector('span').textContent.trim();
+        q.value = t; sugg.classList.remove('show'); submitSearch();
       });
+      on(q, 'blur', () => setTimeout(()=>{ sugg.classList.remove('show'); activeIndex=-1; },120));
 
-      q.addEventListener('focus', () => {
-        const currentValue = q.value.trim();
-        if (currentValue) {
-          updateSuggestions(currentValue);
-        }
-      });
-
-      q.addEventListener('keydown', handleSuggestionKeyboard);
-
-      sugg.addEventListener('mousedown', (event) => {
-        event.preventDefault();
-      });
-
-      sugg.addEventListener('click', (event) => {
-        const listItem = event.target.closest('li');
-        if (!listItem) return;
-
-        const selectedText = listItem.querySelector('span').textContent.trim();
-        q.value = selectedText;
-        sugg.classList.remove('show');
-        submitSearch();
-      });
-
-      q.addEventListener('blur', () => {
-        setTimeout(() => {
-          sugg.classList.remove('show');
-          activeIndex = -1;
-        }, 120);
-      });
-
-      window.addEventListener('beforeunload', () => {
-        cleanupSuggestionScript();
-        Object.keys(window).forEach(key => {
-          if (key.startsWith('suggCallback_')) {
-            delete window[key];
-          }
-        });
-      });
-
-      voice.addEventListener('click', () => {
+      // Voice
+      on(voice, 'click', () => {
         const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SR) { alert("Voice search isn't supported in this browser."); return; }
-
-        voice.classList.add('recording');
-        voice.disabled = true;
-
+        voice.classList.add('recording'); voice.disabled=true;
         try {
-          const rec = new SR();
-          rec.lang = navigator.language || 'en-US';
-          rec.interimResults = true;
-          rec.maxAlternatives = 1;
-
+          const rec = new SR(); rec.lang=navigator.language||'en-US'; rec.interimResults=true; rec.maxAlternatives=1;
           let transcript = q.value;
           rec.onresult = (ev) => {
-            const res = ev.results[ev.results.length - 1][0]?.transcript || '';
-            if (res) transcript = res;
-            q.value = transcript;
-            q.focus();
-            q.setSelectionRange(q.value.length, q.value.length);
+            const res = ev.results[ev.results.length-1][0]?.transcript || '';
+            if (res) transcript = res; q.value = transcript; q.focus(); q.setSelectionRange(q.value.length, q.value.length);
           };
-          rec.onerror = () => {};
-          rec.onend = () => { voice.classList.remove('recording'); voice.disabled = false; };
+          rec.onerror=()=>{}; rec.onend=()=>{ voice.classList.remove('recording'); voice.disabled=false; };
           rec.start();
-        } catch {
-          voice.classList.remove('recording');
-          voice.disabled = false;
-        }
+        } catch { voice.classList.remove('recording'); voice.disabled=false; }
       });
 
-      lensBtn.addEventListener('click', () => lensFile.click());
-      lensFile.addEventListener('change', () => {
+      // Lens
+      on(lensBtn, 'click', () => lensFile.click());
+      on(lensFile, 'change', () => {
         if (lensFile.files && lensFile.files.length) {
-          setTimeout(() => {
-            lensForm.submit();
-            lensForm.reset();
-          }, 0);
+          setTimeout(()=>{ lensForm.submit(); lensForm.reset(); },0);
         }
       });
 
+      // Drag image over bar -> Lens
       const isImage = f => f && f.type && f.type.startsWith('image/');
       const enableDropUI = () => bar.classList.add('drop-active');
       const disableDropUI = () => bar.classList.remove('drop-active');
-
       on(bar, 'dragenter dragover', (e) => {
         if (e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files')) {
-          e.preventDefault(); e.stopPropagation();
-          enableDropUI();
-          e.dataTransfer.dropEffect = 'copy';
+          e.preventDefault(); e.stopPropagation(); enableDropUI(); e.dataTransfer.dropEffect='copy';
         }
       });
-      on(bar, 'dragleave dragend', () => disableDropUI());
-      bar.addEventListener('drop', (e) => {
+      on(bar, 'dragleave dragend', disableDropUI);
+      on(bar, 'drop', (e) => {
         e.preventDefault(); e.stopPropagation(); disableDropUI();
         const files = e.dataTransfer?.files;
         if (!files || !files.length || !isImage(files[0])) return;
-
         try {
-          const dt = new DataTransfer();
-          dt.items.add(files[0]);
-          lensFile.files = dt.files;
-          lensForm.submit();
-          lensForm.reset();
-        } catch {
-          lensFile.click();
+          const dt = new DataTransfer(); dt.items.add(files[0]); lensFile.files = dt.files;
+          lensForm.submit(); lensForm.reset();
+        } catch { lensFile.click(); }
+      });
+
+      // AI
+      on(ai, 'click', () => {
+        const v = q.value.trim(); const base = 'https://www.google.com/search?udm=50';
+        window.location.href = v ? `${base}&q=${encodeURIComponent(v)}` : base;
+      });
+
+      // ---------------- Shortcuts module ----------------
+      const sc = $('#shortcuts');
+      const scGrid = $('#scGrid');
+      const scAdd = $('#scAdd');
+      const scAddFolder = $('#scAddFolder');
+      const scEdit = $('#scEdit');
+      const scEditIcon = $('#scEditIcon');
+      const scExport = $('#scExport');
+      const scImport = $('#scImport');
+      const scImportFile = $('#scImportFile');
+
+      const folderView = $('#folderView');
+      const fvGrid = $('#fvGrid');
+      const fvTitle = $('#fvTitle');
+      const fvBack = $('#fvBack');
+      const fvAdd = $('#fvAdd');
+      const fvToggleEdit = $('#fvToggleEdit');
+      const fvToggleIcon = $('#fvToggleIcon');
+
+      const dialog = $('#scDialog');
+      const overlay = $('#scOverlay');
+      const scForm = $('#scForm');
+      const scDialogTitle = $('#scDialogTitle');
+      const inputTitle = $('#scTitle');
+      const inputUrl = $('#scUrl');
+      const rowUrl = $('#rowUrl');
+      const rowLoc = $('#rowLocation');
+      const selectLocation = $('#scLocation');
+      const scLocationLabel = $('#scLocationLabel');
+      const btnCancel = $('#scCancel');
+
+      const store = {
+        key: 'shortcuts.v1',
+        load() {
+          try {
+            const raw = localStorage.getItem(this.key);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed.items) ? parsed.items : null;
+          } catch { return null; }
+        },
+        save(items) {
+          try { localStorage.setItem(this.key, JSON.stringify({ items })); } catch {}
+        },
+        export(items) {
+          const payload = { version: 1, exportedAt: new Date().toISOString(), items };
+          const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+          const a = document.createElement('a');
+          const pad = (n)=> String(n).padStart(2,'0');
+          const d = new Date();
+          const name = `shortcuts-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.json`;
+          a.href = URL.createObjectURL(blob);
+          a.download = name;
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
+        },
+        async import(file) {
+          const text = await file.text();
+          const json = JSON.parse(text);
+          return sanitizeImport(json);
+        }
+      };
+
+      const uid = (p='id') => `${p}_${Math.random().toString(36).slice(2,9)}${Date.now().toString(36)}`;
+
+      const defaultItems = () => ([
+        { id: uid('fld'), type: 'folder', title: 'Work', children: [
+          { id: uid('sc'), type: 'link', title: 'Gmail', url: 'https://mail.google.com' },
+          { id: uid('sc'), type: 'link', title: 'Drive', url: 'https://drive.google.com' }
+        ]},
+        { id: uid('sc'), type: 'link', title: 'YouTube', url: 'https://youtube.com' },
+        { id: uid('sc'), type: 'link', title: 'Maps', url: 'https://maps.google.com' },
+        { id: uid('sc'), type: 'link', title: 'Translate', url: 'https://translate.google.com' }
+      ]);
+
+      const state = {
+        items: store.load() || defaultItems(),
+        edit: false,       // root grid edit mode
+        folderEdit: false, // folder overlay edit mode
+        folderOpen: null
+      };
+
+      // Helpers
+      const findById = (id, list=state.items, parent=null) => {
+        for (let i=0;i<list.length;i++) {
+          const item = list[i];
+          if (item.id === id) return { item, parent, index: i, list };
+          if (item.type === 'folder' && Array.isArray(item.children)) {
+            const found = findById(id, item.children, item);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+      const listForContext = (ctx) => (!ctx || ctx === 'root') ? state.items : (findById(ctx)?.item?.children || []);
+      const setListForContext = (ctx, newList) => {
+        if (!ctx || ctx === 'root') state.items = newList;
+        else { const f = findById(ctx); if (f?.item?.type === 'folder') f.item.children = newList; }
+      };
+      const removeById = (id) => {
+        const found = findById(id);
+        if (!found) return null;
+        const [removed] = found.list.splice(found.index, 1);
+        return removed || found.item;
+      };
+      const faviconFor = (url) => { try { const u = new URL(url); return `https://www.google.com/s2/favicons?sz=64&domain_url=${encodeURIComponent(u.origin)}`; } catch { return ''; } };
+
+      // Icons
+      const deleteIcon = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 6h18"/>
+          <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>
+          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+          <path d="M10 11v6M14 11v6"/>
+        </svg>
+      `;
+      const folderIcon = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 2h9a2 2 0 0 1 2 2z"/>
+        </svg>
+      `;
+
+      // Render
+      const tileHTML = (it, idx, editable=false) => {
+        if (it.type === 'folder') {
+          const count = (it.children || []).length;
+          return `
+            <li class="tile folder" role="listitem" data-id="${it.id}" data-type="folder" data-index="${idx}" draggable="${editable ? 'true':'false'}" title="${escapeHTML(it.title)}">
+              <div class="favicon folder-ico" aria-hidden="true">${folderIcon}</div>
+              <div class="label">${escapeHTML(it.title)}</div>
+              <div class="count">${count}</div>
+              <button class="action edit" title="Edit folder" aria-label="Edit folder">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M4 21h4l11-11a2.5 2.5 0 0 0-4-4L4 17v4z"></path>
+                </svg>
+              </button>
+              <button class="action remove" title="Delete" aria-label="Delete">
+                ${deleteIcon}
+              </button>
+            </li>
+          `;
+        } else {
+          const icon = faviconFor(it.url);
+          return `
+            <li class="tile link" role="listitem" data-id="${it.id}" data-type="link" data-index="${idx}" draggable="${editable ? 'true':'false'}" title="${escapeHTML(it.title)} • ${escapeHTML(it.url)}">
+              <div class="favicon" aria-hidden="true">
+                ${icon ? `<img src="${icon}" alt="">` : `
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <circle cx="12" cy="12" r="4"></circle>
+                  </svg>
+                `}
+              </div>
+              <div class="label">${escapeHTML(it.title)}</div>
+              <button class="action edit" title="Edit shortcut" aria-label="Edit shortcut">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M4 21h4l11-11a2.5 2.5 0 0 0-4-4L4 17v4z"></path>
+                </svg>
+              </button>
+              <button class="action remove" title="Delete" aria-label="Delete">
+                ${deleteIcon}
+              </button>
+            </li>
+          `;
+        }
+      };
+
+      const renderGrid = (gridEl, ctx='root') => {
+        const list = listForContext(ctx);
+        const editable = ctx === 'root' ? state.edit : state.folderEdit;
+        gridEl.dataset.context = ctx;
+        gridEl.innerHTML = list.map((it, i) => tileHTML(it, i, editable)).join('');
+      };
+
+      const render = () => {
+        renderGrid(scGrid, 'root');
+        sc.classList.toggle('edit', state.edit);
+        scEdit.setAttribute('aria-pressed', String(state.edit));
+        scEditIcon.innerHTML = state.edit
+          ? '<path d="M5 12h14M5 6h14M5 18h14"></path>'
+          : '<path d="M4 21h4l11-11a2.5 2.5 0 0 0-4-4L4 17v4z"></path>';
+
+        if (state.folderOpen) {
+          const f = findById(state.folderOpen)?.item;
+          if (!f) { closeFolder(); }
+          else {
+            fvTitle.textContent = f.title;
+            renderGrid(fvGrid, state.folderOpen);
+            folderView.classList.toggle('edit', state.folderEdit);
+            fvToggleEdit.setAttribute('aria-pressed', String(state.folderEdit));
+            fvToggleIcon.innerHTML = state.folderEdit
+              ? '<path d="M5 12h14M5 6h14M5 18h14"></path>'
+              : '<path d="M4 21h4l11-11a2.5 2.5 0 0 0-4-4L4 17v4z"></path>';
+          }
+        }
+        store.save(state.items);
+      };
+
+      // Folder open/close
+      const openFolder = (folderId) => {
+        const f = findById(folderId)?.item;
+        if (!f || f.type !== 'folder') return;
+        state.folderOpen = folderId;
+        state.folderEdit = false;
+        fvTitle.textContent = f.title;
+        renderGrid(fvGrid, folderId);
+        folderView.classList.add('show');
+        folderView.setAttribute('aria-hidden', 'false');
+        render();
+      };
+      const closeFolder = () => {
+        state.folderOpen = null;
+        state.folderEdit = false;
+        folderView.classList.remove('show', 'edit');
+        folderView.setAttribute('aria-hidden', 'true');
+        render();
+      };
+
+      // Dialog state
+      let dialogState = { mode: 'link', editId: null };
+
+      const buildLocationOptions = () => {
+        const options = [['root', 'Top level']];
+        for (const it of state.items) { if (it.type === 'folder') options.push([it.id, `Folder: ${it.title}`]); }
+        selectLocation.innerHTML = options.map(([v,t]) => `<option value="${v}">${escapeHTML(t)}</option>`).join('');
+      };
+
+      const openDialog = (mode='link', preset = {}, editId = null) => {
+        dialogState = { mode, editId };
+        scDialogTitle.textContent =
+          editId ? (mode === 'folder' ? 'Rename folder' : 'Edit shortcut')
+                 : (mode === 'folder' ? 'New folder'   : 'Add shortcut');
+
+        // Fields
+        rowUrl.style.display = mode === 'link' ? 'flex' : 'none';
+
+        const showLocation = (mode === 'link'); // Add+Edit links show location ("Add to" / "Move to")
+        rowLoc.style.display = showLocation ? 'flex' : 'none';
+        if (showLocation) {
+          buildLocationOptions();
+          scLocationLabel.textContent = editId ? 'Move to' : 'Add to';
+          let currentLoc = 'root';
+          if (editId) {
+            const found = findById(editId);
+            if (found) currentLoc = found.parent?.id || 'root';
+          } else {
+            currentLoc = preset.location ?? (state.folderOpen || 'root');
+          }
+          selectLocation.value = currentLoc;
+        }
+
+        inputTitle.value = preset.title || '';
+        inputUrl.value = preset.url || '';
+        overlay.classList.add('show');
+        dialog.classList.add('show');
+        inputTitle.focus();
+      };
+      const closeDialog = () => { dialog.classList.remove('show'); overlay.classList.remove('show'); };
+
+      const openEdit = (id) => {
+        const found = findById(id);
+        if (!found) return;
+        const it = found.item;
+        if (it.type === 'folder') openDialog('folder', { title: it.title }, it.id);
+        else openDialog('link', { title: it.title, url: it.url }, it.id);
+      };
+
+      // Click handlers (root grid)
+      on(scGrid, 'click', (e) => {
+        const tile = e.target.closest('.tile'); if (!tile) return;
+        const rm = e.target.closest('.remove');
+        const ed = e.target.closest('.edit');
+
+        if (rm && state.edit) { removeById(tile.dataset.id); render(); return; }
+        if (ed && state.edit) { openEdit(tile.dataset.id); return; }
+        if (state.edit) return;
+
+        const type = tile.dataset.type;
+        const id = tile.dataset.id;
+        const found = findById(id)?.item; if (!found) return;
+
+        if (type === 'folder') openFolder(id);
+        else if (type === 'link') window.open(found.url, (e.metaKey||e.ctrlKey)?'_blank':'_self', 'noopener');
+      });
+
+      // Click handlers (folder grid)
+      on(fvGrid, 'click', (e) => {
+        const tile = e.target.closest('.tile'); if (!tile) return;
+        const rm = e.target.closest('.remove');
+        const ed = e.target.closest('.edit');
+
+        if (rm && state.folderEdit) { removeById(tile.dataset.id); render(); return; }
+        if (ed && state.folderEdit) { openEdit(tile.dataset.id); return; }
+        if (state.folderEdit) return;
+
+        const type = tile.dataset.type;
+        const id = tile.dataset.id;
+        const found = findById(id)?.item; if (!found) return;
+
+        if (type === 'folder') openFolder(id); // not expected (one-level model), but safe
+        else if (type === 'link') window.open(found.url, (e.metaKey||e.ctrlKey)?'_blank':'_self', 'noopener');
+      });
+
+      // DnD (reorder + move into folder)
+      let dragInfo = null;
+      const isGridEditable = (grid) => (grid === scGrid ? state.edit : state.folderEdit);
+
+      const clearDropHighlights = () => { $$('.tile.drop-into, .tile.drop-before, .tile.drop-after').forEach(el => el.classList.remove('drop-into','drop-before','drop-after')); };
+
+      const reorderWithin = (ctx, draggedId, beforeId=null) => {
+        const list = listForContext(ctx).slice();
+        const fromIdx = list.findIndex(x => x.id === draggedId);
+        if (fromIdx < 0) return false;
+        const [item] = list.splice(fromIdx, 1);
+        let toIdx = beforeId ? list.findIndex(x => x.id === beforeId) : list.length;
+        if (toIdx < 0) toIdx = list.length;
+        list.splice(toIdx, 0, item);
+        setListForContext(ctx, list);
+        return true;
+      };
+
+      const attachDnD = (grid) => {
+        on(grid, 'dragstart', (e) => {
+          const tile = e.target.closest('.tile'); if (!tile) return;
+          const currentGrid = tile.closest('ul');
+          if (!isGridEditable(currentGrid)) return;
+          dragInfo = { id: tile.dataset.id, fromCtx: currentGrid?.dataset?.context || 'root' };
+          tile.classList.add('dragging');
+          try { e.dataTransfer.setData('text/plain', dragInfo.id); } catch {}
+        });
+        on(grid, 'dragend', (e) => {
+          const tile = e.target.closest('.tile'); if (tile) tile.classList.remove('dragging');
+          dragInfo = null; clearDropHighlights();
+        });
+        on(grid, 'dragover', (e) => {
+          const currentGrid = e.currentTarget;
+          if (!isGridEditable(currentGrid) || !dragInfo) return;
+          e.preventDefault();
+          const overTile = e.target.closest('.tile');
+          clearDropHighlights();
+          if (overTile) {
+            const type = overTile.dataset.type;
+            if (type === 'folder' && findById(dragInfo.id)?.item.type === 'link') overTile.classList.add('drop-into');
+          }
+        });
+        on(grid, 'drop', (e) => {
+          const currentGrid = e.currentTarget;
+          if (!isGridEditable(currentGrid) || !dragInfo) return;
+          e.preventDefault();
+
+          const toCtx = currentGrid.dataset.context || 'root';
+          const overTile = e.target.closest('.tile');
+          const dragged = findById(dragInfo.id)?.item;
+          if (!dragged) return;
+
+          if (overTile) {
+            const overId = overTile.dataset.id;
+            const overType = overTile.dataset.type;
+
+            // Only links into folders (no sub-folders)
+            if (overType === 'folder' && dragged.type === 'link') {
+              removeById(dragInfo.id);
+              const folder = findById(overId)?.item;
+              folder.children = folder.children || [];
+              folder.children.push(dragged);
+              render(); return;
+            }
+
+            if (dragInfo.fromCtx !== toCtx) {
+              const extracted = removeById(dragInfo.id); if (!extracted) return;
+              const list = listForContext(toCtx).slice();
+              const toIdx = list.findIndex(x => x.id === overId);
+              list.splice(toIdx < 0 ? list.length : toIdx, 0, extracted);
+              setListForContext(toCtx, list); render(); return;
+            } else {
+              reorderWithin(toCtx, dragInfo.id, overId); render(); return;
+            }
+          } else {
+            // Drop into empty grid area => move to end
+            if (dragInfo.fromCtx !== toCtx) {
+              const extracted = removeById(dragInfo.id); if (!extracted) return;
+              const list = listForContext(toCtx).slice(); list.push(extracted);
+              setListForContext(toCtx, list);
+            } else {
+              reorderWithin(toCtx, dragInfo.id, null);
+            }
+            render();
+          }
+        });
+      };
+      attachDnD(scGrid);
+      attachDnD(fvGrid);
+
+      // Top bar buttons
+      on(scAdd, 'click', () => openDialog('link'));
+      on(scAddFolder, 'click', () => openDialog('folder')); // always top-level
+      on(scEdit, 'click', () => { state.edit = !state.edit; render(); });
+
+      // Folder controls
+      on(fvBack, 'click', closeFolder);
+      on(fvAdd, 'click', () => openDialog('link', { location: state.folderOpen }));
+      on(fvToggleEdit, 'click', () => { state.folderEdit = !state.folderEdit; render(); });
+
+      // Dialog interactions
+      on(overlay, 'click', closeDialog);
+      on(btnCancel, 'click', closeDialog);
+      on(scForm, 'submit', (e) => {
+        e.preventDefault();
+        const title = inputTitle.value.trim();
+        const mode = dialogState.mode;
+
+        // Edit existing
+        if (dialogState.editId) {
+          const found = findById(dialogState.editId);
+          if (!found) { closeDialog(); return; }
+
+          if (mode === 'folder') {
+            found.item.title = title || 'Folder';
+            render(); closeDialog(); return;
+          }
+
+          // Edit link + Move to...
+          let url = inputUrl.value.trim();
+          try {
+            if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+            new URL(url);
+          } catch { alert('Please enter a valid URL.'); return; }
+          const name = title || (new URL(url).hostname.replace(/^www\./,''));
+          const currentLoc = found.parent?.id || 'root';
+          const newLoc = (rowLoc.style.display !== 'none') ? (selectLocation.value || currentLoc) : currentLoc;
+
+          if (newLoc === currentLoc) {
+            found.item.title = name; found.item.url = url;
+          } else {
+            const updated = removeById(dialogState.editId);
+            if (updated) {
+              updated.title = name; updated.url = url;
+              if (newLoc === 'root') state.items.push(updated);
+              else {
+                const folder = findById(newLoc)?.item;
+                folder.children = folder.children || [];
+                folder.children.push(updated);
+              }
+            }
+          }
+          render(); closeDialog(); return;
+        }
+
+        // Create new
+        if (mode === 'link') {
+          let url = inputUrl.value.trim();
+          if (!url) return;
+          try {
+            if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+            new URL(url);
+          } catch { alert('Please enter a valid URL.'); return; }
+          const name = title || (new URL(url).hostname.replace(/^www\./,''));
+          const item = { id: uid('sc'), type: 'link', title: name, url };
+          const loc = (selectLocation.value || 'root');
+          if (loc === 'root') state.items.push(item);
+          else {
+            const folder = findById(loc)?.item;
+            if (folder?.type === 'folder') { folder.children = folder.children || []; folder.children.push(item); }
+            else state.items.push(item);
+          }
+        } else {
+          // New folder: always top-level
+          const name = title || 'New folder';
+          state.items.push({ id: uid('fld'), type: 'folder', title: name, children: [] });
+        }
+
+        render(); closeDialog();
+        inputTitle.value = ''; inputUrl.value = '';
+      });
+
+      // Import/Export
+      const sanitizeImport = (input) => {
+        const out = [];
+        const seen = new Set();
+        const newId = (isFolder) => {
+          let id; do { id = uid(isFolder ? 'fld' : 'sc'); } while (seen.has(id));
+          seen.add(id); return id;
+        };
+        const validUrl = (u) => {
+          try { if (!/^https?:\/\//i.test(u)) u = 'https://' + u; const url = new URL(u); return url.href; }
+          catch { return null; }
+        };
+        const addLink = (title, url) => {
+          const href = validUrl(url); if (!href) return null;
+          return { id: newId(false), type: 'link', title: String(title||new URL(href).hostname.replace(/^www\./,'')), url: href };
+        };
+        const each = Array.isArray(input) ? input : (Array.isArray(input?.items) ? input.items : []);
+        for (const it of each) {
+          if (!it || typeof it !== 'object') continue;
+          if (it.type === 'folder') {
+            const folder = { id: newId(true), type: 'folder', title: String(it.title || 'Folder'), children: [] };
+            const kids = Array.isArray(it.children) ? it.children : [];
+            for (const ch of kids) {
+              if (ch?.type === 'link') {
+                const link = addLink(ch.title, ch.url);
+                if (link) folder.children.push(link);
+              } else if (ch?.type === 'folder' && Array.isArray(ch.children)) {
+                // Flatten nested folders: keep their links
+                for (const sub of ch.children) {
+                  if (sub?.type === 'link') {
+                    const link = addLink(sub.title, sub.url);
+                    if (link) folder.children.push(link);
+                  }
+                }
+              }
+            }
+            out.push(folder);
+          } else if (it.type === 'link') {
+            const link = addLink(it.title, it.url);
+            if (link) out.push(link);
+          }
+        }
+        return out;
+      };
+
+      on(scExport, 'click', () => store.export(state.items));
+      on(scImport, 'click', () => scImportFile.click());
+      on(scImportFile, 'change', async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        try {
+          const imported = await store.import(file);
+          if (!imported.length) { alert('No shortcuts found in file.'); return; }
+          if (confirm('Replace current shortcuts with imported data?\nPress OK to Replace, Cancel to Merge.')) {
+            state.items = imported;
+          } else {
+            state.items = state.items.concat(imported);
+          }
+          render();
+        } catch (err) {
+          console.warn('Import failed:', err);
+          alert('Could not import file. Please ensure it is a valid shortcuts JSON.');
+        } finally {
+          scImportFile.value = '';
         }
       });
 
-      ai.addEventListener('click', () => {
-        const v = q.value.trim();
-        const base = 'https://www.google.com/search?udm=50';
-        window.location.href = v ? `${base}&q=${encodeURIComponent(v)}` : base;
+      // Keyboard: ESC closes folder or dialog
+      on(document, 'keydown', (e) => {
+        if (e.key === 'Escape') {
+          if (dialog.classList.contains('show')) { closeDialog(); return; }
+          if (folderView.classList.contains('show')) { closeFolder(); return; }
+        }
       });
+
+      // Init
+      render();
     })();
   </script>
+
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch(() => {
-          /* noop: SW registration can fail on unsupported contexts (e.g., file://) */
-        });
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
       });
     }
   </script>
