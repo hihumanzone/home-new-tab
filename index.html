@@ -746,9 +746,8 @@
       // Lens
   on(lensBtn, 'click', () => lensFile.click());
       on(lensFile, 'change', () => {
-        if (lensFile.files && lensFile.files.length > 0) {
-          lensForm.submit();
-          lensForm.reset();
+        if (lensFile.files && lensFile.files.length) {
+          setTimeout(()=>{ lensForm.submit(); lensForm.reset(); },0);
         }
       });
 
