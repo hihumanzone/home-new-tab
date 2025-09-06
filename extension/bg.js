@@ -31,10 +31,20 @@ function mapNodeToItem(node){
 }
 
 async function getToolbarNode(){
-  const roots = await chrome.bookmarks.getTree();
-  const root = roots && roots[0];
-  const bar = root && root.children && root.children[0];
-  return bar || null;
+  // Try well-known Chrome id '1' first
+  try {
+    const byId = await chrome.bookmarks.get('1');
+    if (Array.isArray(byId) && byId[0]) return byId[0];
+  } catch {}
+  // Fallback to tree traversal
+  try {
+    const roots = await chrome.bookmarks.getTree();
+    const root = roots && roots[0];
+    const bar = root && Array.isArray(root.children) ? root.children.find(Boolean) : null;
+    return bar || null;
+  } catch {
+    return null;
+  }
 }
 
 async function api(method, params){

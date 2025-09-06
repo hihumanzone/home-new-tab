@@ -4,7 +4,7 @@
 // matches the extension-declared match pattern (https://home-new-tab.vercel.app/*).
 
 (function(){
-  const PAGE_ORIGIN = 'https://home-new-tab.vercel.app';
+  const PAGE_ORIGIN = location.origin;
 
   function reply(event, id, ok, result, error){
     try { event.source.postMessage({ __ntb: true, id, ok, result, error }, event.origin); } catch(e) {}
@@ -18,7 +18,7 @@
 
   // Listen for RPC requests from the page and forward to background
   window.addEventListener('message', async (event) => {
-    if (event.origin !== PAGE_ORIGIN) return;
+    if (event.source !== window) return;
     const data = event.data;
     if (!data || data.__ntb !== true) return;
     const { id, method, params } = data;
@@ -32,4 +32,7 @@
       reply(event, id, false, null, String(err && err.message || err));
     }
   });
+
+  // Notify the page that the content script is active
+  try { window.postMessage({ __ntb_ready: true }, PAGE_ORIGIN); } catch {}
 })();

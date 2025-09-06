@@ -539,7 +539,7 @@
 
       // Extension bridge: talk to the new-tab extension's content script if present
       const EXT = (() => {
-        const ORIGIN = 'https://home-new-tab.vercel.app';
+        const ORIGIN = location.origin;
         let reqId = 0;
         const pending = new Map();
         let connected = false;
@@ -563,8 +563,13 @@
 
         // Handle replies and broadcasts
         window.addEventListener('message', (event) => {
-          if (event.origin !== ORIGIN) return;
+          if (event.source !== window) return;
           const d = event.data;
+          if (d && d.__ntb_ready === true) {
+            // Content script is injected; attempt to connect immediately
+            EXT.connect(1).then((data) => { if (data && Array.isArray(data.items)) { state.items = data.items; scImport.setAttribute('disabled','true'); render(); } });
+            return;
+          }
           if (d && d.__ntb === true) {
             const entry = pending.get(d.id);
             if (entry) {
@@ -578,13 +583,20 @@
           }
         });
 
-        async function connect() {
-          try {
-            const data = await call('getToolbar', {}, 1200);
-            toolbarRootId = data?.id || null;
-            connected = !!toolbarRootId;
-            return connected ? data : null;
-          } catch { return null; }
+        async function connect(attempts = 5) {
+          for (let i = 0; i < attempts; i++) {
+            try {
+              const data = await call('getToolbar', {}, 4000);
+              toolbarRootId = data?.id || null;
+              connected = !!toolbarRootId;
+              if (connected) {
+                try { console.debug('[Home New Tab] Extension connected, toolbar id:', toolbarRootId); } catch {}
+                return data;
+              }
+            } catch {}
+            await new Promise(r => setTimeout(r, 600));
+          }
+          return null;
         }
 
         // Public API
@@ -1401,9 +1413,11 @@
         const data = await EXT.connect();
         if (data && Array.isArray(data.items)) {
           state.items = data.items;
-          // Disable import/export UI when syncing
+          // Disable import UI when syncing
           scImport.setAttribute('disabled', 'true');
           render();
+          // Tiny connection indicator (non-intrusive)
+          try { const el = document.createElement('div'); el.style.cssText='position:fixed;right:8px;bottom:8px;font:12px system-ui;color:#8bbdff;opacity:.6;user-select:none;'; el.textContent='Synced with Bookmarks'; document.body.appendChild(el); setTimeout(()=>el.remove(), 3000); } catch {}
         } else {
           render();
         }
