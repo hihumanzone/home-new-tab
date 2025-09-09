@@ -601,7 +601,6 @@
       const ai = $('#ai');
       const sugg = $('#sugg');
 
-      // Icons for voice button states
       const VOICE_ICONS = {
         mic: `
           <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -619,12 +618,10 @@
 
       const isValidUrl = (str) => {
         try {
-          // Check if it's already a complete URL
           if (/^https?:\/\//i.test(str)) {
             new URL(str);
             return str;
           }
-          // Check if it looks like a domain (contains a dot and valid characters)
           if (/^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}([\/\w\.-]*)*\/?$/.test(str)) {
             const url = 'https://' + str;
             new URL(url);
@@ -639,15 +636,11 @@
       const submitSearch = () => {
         const v = q.value.trim();
         if (!v) { q.focus(); return; }
-        
-        // Check if input is a URL
         const url = isValidUrl(v);
         if (url) {
           window.location.href = url;
           return;
         }
-        
-        // Otherwise, perform Google search
         form.submit();
       };
       on(go, 'click', submitSearch);
@@ -658,7 +651,6 @@
           q.focus(); 
           return;
         }
-        
         const url = isValidUrl(v);
         if (url) {
           e.preventDefault();
@@ -745,13 +737,11 @@
       });
       on(sugg, 'blur', () => setTimeout(()=>{ sugg.classList.remove('show'); activeIndex=-1; },120));
 
-      // Voice search: toggle start/stop + live transcript
       let rec = null; let isListening = false;
       on(voice, 'click', () => {
         const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SR) { alert("Voice search isn't supported in this browser."); return; }
 
-        // Stop if already listening
         if (isListening && rec) {
           try { rec.stop(); } catch {}
           return;
@@ -763,7 +753,6 @@
           rec.interimResults = true;
           rec.maxAlternatives = 1;
 
-          // UI: switch to stop state
           isListening = true;
           voice.classList.add('recording');
           voice.innerHTML = VOICE_ICONS.stop;
@@ -792,7 +781,6 @@
 
           rec.start();
         } catch {
-          // Reset UI on failure
           isListening = false; rec = null;
           voice.classList.remove('recording');
           voice.innerHTML = VOICE_ICONS.mic;
@@ -1050,10 +1038,9 @@
           editId ? (mode === 'folder' ? 'Rename folder' : 'Edit shortcut')
                  : (mode === 'folder' ? 'New folder'   : 'Add shortcut');
 
-        // Fields
         rowUrl.style.display = mode === 'link' ? 'flex' : 'none';
 
-        const showLocation = (mode === 'link'); // Add+Edit links show location ("Add to" / "Move to")
+        const showLocation = (mode === 'link');
         rowLoc.style.display = showLocation ? 'flex' : 'none';
         if (showLocation) {
           buildLocationOptions();
@@ -1183,10 +1170,9 @@
             const overId = overTile.dataset.id;
             const overType = overTile.dataset.type;
 
-            // Only links into folders (no sub-folders)
             if (overType === 'folder' && dragged.type === 'link') {
               if (EXT.isConnected()) {
-                const parentId = overId; // move into folder
+                const parentId = overId;
                 try { await EXT.moveNode({ id: dragged.id, parentId }); await refreshFromExtension(); } catch {}
               } else {
                 removeById(dragInfo.id);
@@ -1201,7 +1187,6 @@
             if (dragInfo.fromCtx !== toCtx) {
               if (EXT.isConnected()) {
                 const parentId = (toCtx === 'root') ? EXT.getToolbarRootId() : toCtx;
-                // Insert before overId => compute index of overId in target list
                 const list = listForContext(toCtx);
                 const toIdx = Math.max(0, list.findIndex(x => x.id === overId));
                 try { await EXT.moveNode({ id: dragged.id, parentId, index: toIdx }); await refreshFromExtension(); } catch {}
@@ -1225,7 +1210,6 @@
               return;
             }
           } else {
-            // Drop into empty grid area => move to end
             if (dragInfo.fromCtx !== toCtx) {
               if (EXT.isConnected()) {
                 const parentId = (toCtx === 'root') ? EXT.getToolbarRootId() : toCtx;
