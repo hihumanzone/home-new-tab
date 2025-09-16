@@ -638,7 +638,7 @@
         if (!v) { q.focus(); return; }
         const url = isValidUrl(v);
         if (url) {
-          window.location.href = url;
+          window.location.replace(url);
           return;
         }
         form.submit();
@@ -654,7 +654,7 @@
         const url = isValidUrl(v);
         if (url) {
           e.preventDefault();
-          window.location.href = url;
+          window.location.replace(url);
           return;
         }
       });
@@ -795,7 +795,7 @@
 
       on(ai, 'click', () => {
         const v = q.value.trim(); const base = 'https://www.google.com/search?udm=50';
-        window.location.href = v ? `${base}&q=${encodeURIComponent(v)}` : base;
+        window.location.replace(v ? `${base}&q=${encodeURIComponent(v)}` : base);
       });
 
       const sc = $('#shortcuts');
@@ -1090,7 +1090,13 @@
         const found = findById(id)?.item; if (!found) return;
 
         if (type === 'folder') openFolder(id);
-        else if (type === 'link') window.open(found.url, (e.metaKey||e.ctrlKey)?'_blank':'_self', 'noopener');
+        else if (type === 'link') {
+          if (e.metaKey || e.ctrlKey) {
+            window.open(found.url, '_blank', 'noopener');
+          } else {
+            window.location.replace(found.url);
+          }
+        }
       });
 
       on(fvGrid, 'click', async (e) => {
@@ -1112,7 +1118,13 @@
         const found = findById(id)?.item; if (!found) return;
 
         if (type === 'folder') openFolder(id); // not expected (one-level model), but safe
-        else if (type === 'link') window.open(found.url, (e.metaKey||e.ctrlKey)?'_blank':'_self', 'noopener');
+        else if (type === 'link') {
+          if (e.metaKey || e.ctrlKey) {
+            window.open(found.url, '_blank', 'noopener');
+          } else {
+            window.location.replace(found.url);
+          }
+        }
       });
 
       let dragInfo = null;
@@ -1449,6 +1461,11 @@
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>
       });
     }
   </script>
