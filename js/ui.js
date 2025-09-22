@@ -8,8 +8,11 @@
     return;
   }
 
-// Use shared utility functions
-const { $, $$, on, escapeHTML } = window.utils;
+// Use shared utility functions directly
+const $ = window.utils.$;
+const $$ = window.utils.$$;
+const on = window.utils.on;
+const escapeHTML = window.utils.escapeHTML;
 
 // Wait for shortcuts module to be available for the functions we use from it
 function waitForShortcutsModule() {
@@ -21,7 +24,16 @@ function waitForShortcutsModule() {
 }
 
 function initUIModule() {
-const { state, store, findById, listForContext, setListForContext, removeById, reorderWithin, tileHTML, clearDropHighlights, uid } = window.shortcutsModule;
+const state = window.shortcutsModule.state;
+const store = window.shortcutsModule.store;
+const findById = window.shortcutsModule.findById;
+const listForContext = window.shortcutsModule.listForContext;
+const setListForContext = window.shortcutsModule.setListForContext;
+const removeById = window.shortcutsModule.removeById;
+const reorderWithin = window.shortcutsModule.reorderWithin;
+const tileHTML = window.shortcutsModule.tileHTML;
+const clearDropHighlights = window.shortcutsModule.clearDropHighlights;
+const uid = window.shortcutsModule.uid;
 
 // DOM element references
 const sc = $('#shortcuts');

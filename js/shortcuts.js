@@ -8,8 +8,11 @@
     return;
   }
 
-// Use shared utility functions
-const { $, $$, on, escapeHTML } = window.utils;
+// Use shared utility functions directly
+const $ = window.utils.$;
+const $$ = window.utils.$$;
+const on = window.utils.on;
+const escapeHTML = window.utils.escapeHTML;
 
 // Storage management
 const store = {
