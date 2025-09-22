@@ -163,7 +163,20 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch(() => {});
+        navigator.serviceWorker.register('./sw.js').then(registration => {
+          // Trigger cache cleanup periodically (once per day)
+          const lastCleanup = localStorage.getItem('sw-last-cleanup');
+          const now = Date.now();
+          const oneDayMs = 24 * 60 * 60 * 1000;
+          
+          if (!lastCleanup || (now - parseInt(lastCleanup)) > oneDayMs) {
+            // Trigger cache cleanup
+            if (registration.active) {
+              registration.active.postMessage({ type: 'CLEANUP_CACHE' });
+            }
+            localStorage.setItem('sw-last-cleanup', now.toString());
+          }
+        }).catch(() => {});
       });
     }
   </script>
