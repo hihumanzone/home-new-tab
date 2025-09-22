@@ -648,6 +648,20 @@
         `
       };
 
+      const SUGG_ICONS = {
+        bookmark: `
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>
+          </svg>
+        `,
+        search: `
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/>
+            <path d="m21 21-4.35-4.35"/>
+          </svg>
+        `
+      };
+
       const isValidUrl = (str) => {
         try {
           if (/^https?:\/\//i.test(str)) {
@@ -700,9 +714,9 @@
       const buildBookmarkIndex = () => {
         if (!state.items) return;
         const currentVersion = JSON.stringify(state.items);
-        if (bookmarkIndex && indexVersion === currentVersion.length) return; // Simple change detection
+        if (bookmarkIndex && indexVersion === currentVersion) return; // Improved change detection
         
-        indexVersion = currentVersion.length;
+        indexVersion = currentVersion;
         bookmarkIndex = [];
         
         const walk = (arr) => {
@@ -782,6 +796,7 @@
         
         sugg.innerHTML = items.slice(0, SUGGESTIONS_CONFIG.maxItems).map((it,i)=>`
           <li role="option"
+              id="suggestion-${i}"
               data-index="${i}"
               data-type="${it.type}"
               ${it.url ? `data-url="${escapeHTML(it.url)}"` : ''}
@@ -807,6 +822,7 @@
           sugg.classList.remove('show');
           sugg.innerHTML = '';
           q.setAttribute('aria-expanded', 'false');
+          q.removeAttribute('aria-activedescendant');
           activeIndex = -1;
           lastQuery = '';
         }
@@ -866,7 +882,11 @@
 
       const setActive = (idx) => {
         const items = Array.from(sugg.querySelectorAll('li'));
-        if (!items.length) { activeIndex = -1; return; }
+        if (!items.length) { 
+          activeIndex = -1; 
+          q.removeAttribute('aria-activedescendant');
+          return; 
+        }
         
         items.forEach((li,i)=>{ 
           const active = i === idx; 
@@ -875,9 +895,9 @@
         });
         
         activeIndex = idx; 
-        if (idx >= 0) {
+        if (idx >= 0 && idx < items.length) {
           items[idx].scrollIntoView({block:'nearest'});
-          q.setAttribute('aria-activedescendant', items[idx].id || `suggestion-${idx}`);
+          q.setAttribute('aria-activedescendant', `suggestion-${idx}`);
         } else {
           q.removeAttribute('aria-activedescendant');
         }
@@ -1188,7 +1208,7 @@
       };
 
       const render = () => {
-        buildBookmarkIndex(); // Update search index
+        if (!isLowPower) buildBookmarkIndex(); // Skip on low-power devices unless needed
         renderGrid(scGrid, 'root');
         sc.classList.toggle('edit', state.edit);
         scEdit.setAttribute('aria-pressed', String(state.edit));
@@ -1293,7 +1313,15 @@
         
         // Return focus to the element that opened the dialog
         if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
-          setTimeout(() => lastFocusedElement.focus(), 10);
+          setTimeout(() => {
+            try {
+              if (lastFocusedElement && document.contains(lastFocusedElement)) {
+                lastFocusedElement.focus();
+              }
+            } catch (e) {
+              console.warn('Failed to restore focus:', e);
+            }
+          }, 10);
         }
         lastFocusedElement = null;
       };
