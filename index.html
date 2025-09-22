@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Home</title>
 
-  <link rel="preload" href="./wallpaper-dark.jpg" as="image" fetchpriority="low" />
+  <link rel="preload" href="./wallpaper-dark.jpg" as="image" />
 
   <style>
     :root{
@@ -25,11 +25,13 @@
       --dock-top: 6vh;
       --bar-h: 60px;
 
+      /* Shortcuts */
       --tile: 94px;
       --tile-gap: 10px;
       --tile-radius: 16px;
     }
 
+    /* Base */
     html, body {
       height: 100%;
       background-color: var(--bg);
@@ -82,6 +84,7 @@
     .bar *:focus,
     .bar *:focus-visible { outline: none !important; box-shadow: none !important; }
 
+    /* Input */
     .form { display: contents; }
     .q {
       width: 100%;
@@ -96,6 +99,7 @@
     }
     .q::placeholder { color: var(--ink-dim); opacity: .6; }
 
+    /* Action cluster (right side) */
     .actions {
       display: flex;
       align-items: center;
@@ -119,6 +123,7 @@
     .btn:active { transform: scale(.96); }
     .btn[disabled] { opacity: .45; cursor: not-allowed; }
 
+    /* Voice recording pulse */
     .voice.recording {
       background: #2f2c32;
       box-shadow: 0 0 0 0 rgba(106,163,255,.35);
@@ -167,6 +172,9 @@
     .suggest li.active { background: var(--suggest-hover); }
     .s-icon { width: 18px; height: 18px; opacity: .7; }
 
+    @media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
+
+    /* Shortcuts */
     .shortcuts {
       position: fixed;
       top: calc(var(--dock-top) + var(--bar-h) + 18px);
@@ -200,7 +208,7 @@
       display:grid;
       grid-template-columns: repeat(auto-fill, minmax(var(--tile), 1fr));
       gap: var(--tile-gap);
-      margin: 0; padding: 0; list-style: none;
+      margin: 0; padding: 0; list-style: none; /* alignment fix: remove default ul spacing */
     }
     .tile{
       position:relative;
@@ -229,6 +237,7 @@
       text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
     }
 
+    /* In-tile actions (Edit + Delete) */
     .tile .action{
       position:absolute; top:6px;
       width: 24px; height: 24px;
@@ -250,6 +259,7 @@
     .shortcuts.edit .tile .action,
     .folder-view.edit .tile .action { display:grid; }
 
+    /* Folder tile icon */
     .tile.folder .favicon { background: transparent; }
     .tile.folder .folder-ico{
       width: 28px; height: 28px; display:grid; place-items:center;
@@ -262,6 +272,7 @@
       font-size:.7rem; color: var(--ink-dim); opacity:.8;
     }
 
+    /* Folder view overlay */
     .folder-view{
       position:absolute; inset: 8px;
       background: rgba(18,17,18,.95);
@@ -291,14 +302,15 @@
       padding: 3px;
     }
     .folder-view .fv-grid{
-      overflow: auto;
+      overflow: auto; /* internal scroll */
       -webkit-overflow-scrolling: touch;
       display:grid;
       grid-template-columns: repeat(auto-fill, minmax(var(--tile), 1fr));
       gap: var(--tile-gap);
-      margin: 0; padding: 0; list-style: none;
+      margin: 0; padding: 0; list-style: none; /* alignment fix inside folder */
     }
 
+    /* Dialog + overlay */
     .overlay{
       position: fixed; inset: 0;
       background: rgba(0,0,0,.4);
@@ -346,24 +358,6 @@
       color: var(--ink); border-radius: 10px;
     }
 
-    @supports (content-visibility: auto) {
-      .shortcuts,
-      .folder-view {
-        content-visibility: auto;
-        contain: content;
-        contain-intrinsic-size: 400px 600px;
-      }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      .bar,
-      .shortcuts,
-      .folder-view {
-        box-shadow: none;
-      }
-      .btn { transition: none; }
-    }
-
     @media (max-width: 520px){
       :root { --tile: 86px; }
       .shortcuts { width: min(680px, calc(100vw - 1.5rem)); }
@@ -371,12 +365,15 @@
   </style>
 </head>
 <body>
+  <!-- Fixed top-center dock -->
   <div class="dock" aria-label="Search dock">
     <div id="bar" class="bar" role="search" aria-label="Search">
+      <!-- Search form -->
       <form id="form" class="form" action="https://www.google.com/search" method="GET" autocomplete="off" target="_self">
         <input id="q" class="q" name="q" type="text" inputmode="search" spellcheck="false" aria-label="Search Google" placeholder="Search Google" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="suggest" aria-haspopup="listbox" />
       </form>
 
+      <!-- Actions -->
       <div class="actions" aria-label="Quick actions">
         <button id="go" class="btn go" type="button" title="Search" aria-label="Search">
           <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -409,9 +406,11 @@
       </div>
     </div>
 
+    <!-- Suggestions -->
     <ul id="suggest" class="suggest" role="listbox" aria-label="Search suggestions"></ul>
   </div>
 
+  <!-- Shortcuts -->
   <section id="shortcuts" class="shortcuts" aria-label="Shortcuts">
     <div class="sc-bar">
       <div class="sc-title">Shortcuts</div>
@@ -428,6 +427,7 @@
           </svg>
         </button>
 
+        <!-- Import/Export -->
         <button id="scExport" class="btn tiny" title="Export shortcuts" aria-label="Export shortcuts">
           <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 3v10"></path>
@@ -453,6 +453,7 @@
     </div>
     <ul id="scGrid" class="tiles" role="list"></ul>
 
+    <!-- Folder overlay -->
     <div id="folderView" class="folder-view" aria-hidden="true">
       <div class="fv-bar">
         <div class="fv-left">
@@ -480,6 +481,7 @@
     </div>
   </section>
 
+  <!-- Dialog + overlay -->
   <div id="scOverlay" class="overlay" aria-hidden="true"></div>
   <div id="scDialog" class="sc-dialog" role="dialog" aria-modal="true" aria-labelledby="scDialogTitle">
     <h3 id="scDialogTitle">Add shortcut</h3>
@@ -651,12 +653,7 @@
         if (url) { e.preventDefault(); window.location.replace(url); return; }
       });
 
-      const SUGGESTIONS_CONFIG = { 
-        maxItems: 8, 
-        timeout: 3000, 
-        fallbackSuggestions: ["news","weather","maps","translate","time","calculator","currency converter","nearby restaurants","youtube","gmail"],
-        minWebChars: 2
-      };
+      const SUGGESTIONS_CONFIG = { maxItems: 8, timeout: 3000, fallbackSuggestions: ["news","weather","maps","translate","time","calculator","currency converter","nearby restaurants","youtube","gmail"] };
       let activeIndex = -1, lastQuery = '', suggestionRequestId = 0;
 
       const SUGG_ICONS = {
@@ -686,25 +683,33 @@
         return out;
       };
 
-      const faviconURLCache = new Map();
-
+      // Bookmark search index for better performance
       let bookmarkIndex = [];
-      let indexGen = 0;
-      let lastBuiltGen = -1;
+      let lastBookmarkHash = '';
 
-      const invalidateBookmarkIndex = () => { indexGen++; };
+      const invalidateBookmarkIndex = () => {
+        lastBookmarkHash = '';
+        bookmarkIndex = [];
+      };
 
       const buildBookmarkIndex = () => {
-        if (lastBuiltGen === indexGen && bookmarkIndex.length) return bookmarkIndex;
         const links = flattenLinks(state.items);
+        const currentHash = JSON.stringify(links.map(l => ({ title: l.title, url: l.url })));
+        
+        // Only rebuild if bookmarks have changed
+        if (currentHash === lastBookmarkHash) return bookmarkIndex;
+        
+        lastBookmarkHash = currentHash;
         bookmarkIndex = links.map(l => {
           let host = '';
-          try {
+          try { 
             const url = new URL(l.url);
             host = url.hostname.replace(/^www\./,'').toLowerCase();
           } catch {}
+          
           const title = (l.title || '').toLowerCase();
           const label = l.title || host || l.url;
+          
           return {
             title,
             url: l.url,
@@ -713,8 +718,55 @@
             searchTokens: [title, host, label.toLowerCase()].filter(Boolean)
           };
         }).filter(item => item.title || item.host);
-        lastBuiltGen = indexGen;
+        
         return bookmarkIndex;
+      };
+
+      /**
+       * Fast bookmark search using pre-built index
+       * Searches through titles and hostnames with scoring
+       * @param {string} text - Search query
+       * @param {number} limit - Maximum results to return
+       * @returns {Array} Scored bookmark results
+       */
+      const searchBookmarks = (text, limit = 5) => {
+        const q = (text||'').trim().toLowerCase();
+        if (!q) return [];
+        
+        // Ensure index is built and get it
+        const index = buildBookmarkIndex();
+        
+        const scored = [];
+        for (const item of index) {
+          let score = 0;
+          const { title, host, searchTokens } = item;
+          
+          // Exact matches get highest score
+          if (title === q || host === q) {
+            score += 10;
+          }
+          // Prefix matches get high score
+          else if (title.startsWith(q) || host.startsWith(q)) {
+            score += 8;
+          }
+          // Substring matches get medium score
+          else {
+            for (const token of searchTokens) {
+              if (token.includes(q)) {
+                score += 3;
+                break;
+              }
+            }
+          }
+          
+          if (score > 0) {
+            scored.push({ type: 'bookmark', label: item.label, url: item.url, score });
+          }
+        }
+        
+        // Sort by score (descending) then by label length (ascending)
+        scored.sort((a, b) => b.score - a.score || a.label.length - b.label.length);
+        return scored.slice(0, limit);
       };
 
       const cleanupSuggestionScript = () => { const s = document.querySelector('#suggestions-script'); if (s) s.remove(); };
@@ -727,6 +779,7 @@
             try { 
               delete window[cb]; 
               cleanupSuggestionScript(); 
+              // Check if this is still the current request
               if (requestId === suggestionRequestId) {
                 resolve(Array.isArray(data?.[1]) ? data[1] : []); 
               }
@@ -781,30 +834,38 @@
         updateAriaExpanded(true);
       };
 
-      const debounce = (fn, d=120) => {
-        let id;
-        return (...args)=>{ clearTimeout(id); id = setTimeout(()=> fn(...args), d); };
+      const debounce = (fn, d=120) => { 
+        let id; 
+        return (...args)=>{ 
+          clearTimeout(id); 
+          id = setTimeout(()=> fn(...args), d); 
+        }; 
       };
 
+      /**
+       * Debounced function to fetch and merge web suggestions with bookmarks
+       * Only updates suggestions if web results are available
+       */
       const updateSuggestions = debounce(async (text) => {
         const v = (text||'').trim();
         if (!v) { sugg.classList.remove('show'); sugg.innerHTML=''; lastQuery=''; updateAriaExpanded(false); return; }
         if (v === lastQuery) return;
         lastQuery = v;
-
+        
+        // Generate unique request ID to prevent stale responses
         const currentRequestId = ++suggestionRequestId;
-
+        
         try {
+          // Get bookmarks - they should already be shown by showInstantBookmarks
           const bm = searchBookmarks(v);
-
-          if (v.length < SUGGESTIONS_CONFIG.minWebChars) {
-            if (currentRequestId === suggestionRequestId) renderSuggestions(bm);
-            return;
-          }
-
+          
+          // Fetch web suggestions asynchronously
           const web = await fetchSuggestions(v, currentRequestId);
+          
+          // Check if this response is still current
           if (currentRequestId !== suggestionRequestId) return;
-
+          
+          // Merge web suggestions with bookmarks, avoiding duplicates
           const seen = new Set(bm.map(x => x.label.toLowerCase()));
           const webObjs = [];
           for (const s of web) {
@@ -816,15 +877,26 @@
             webObjs.push({ type: 'query', label: lbl });
             if (bm.length + webObjs.length >= SUGGESTIONS_CONFIG.maxItems) break;
           }
-          renderSuggestions(webObjs.length > 0 ? [...bm, ...webObjs] : bm);
+          
+          // Only update if we have web suggestions to add
+          if (webObjs.length > 0) {
+            renderSuggestions([...bm, ...webObjs]);
+          }
         } catch {
+          // On error, just show bookmarks if we haven't already
           if (currentRequestId === suggestionRequestId) {
             const bm = searchBookmarks(v);
-            if (bm.length > 0) renderSuggestions(bm);
+            if (bm.length > 0) {
+              renderSuggestions(bm);
+            }
           }
         }
-      }, 200);
+      }, 120);
 
+      /**
+       * Shows bookmark suggestions immediately without debouncing
+       * Takes advantage of local data being instantly available
+       */
       const showInstantBookmarks = (text) => {
         const v = (text||'').trim();
         if (!v) return;
@@ -901,6 +973,7 @@
         }
       }
 
+      // Combined input handler for better performance and clarity
       const handleSearchInput = (value) => {
         if (!isComposing) {
           showInstantBookmarks(value);
@@ -1026,21 +1099,6 @@
       const scLocationLabel = $('#scLocationLabel');
       const btnCancel = $('#scCancel');
 
-      const scheduleSave = (() => {
-        let handle = null;
-        return () => {
-          if (handle) return;
-          const run = () => { handle = null; store.save(state.items); };
-          if ('requestIdleCallback' in window) {
-            handle = requestIdleCallback(run, { timeout: 1000 });
-          } else {
-            handle = setTimeout(run, 250);
-          }
-        };
-      })();
-
-      const markDataChanged = () => { invalidateBookmarkIndex(); };
-
       const store = {
         key: 'shortcuts.v1',
         load() {
@@ -1100,7 +1158,6 @@
           const data = await EXT.getToolbar();
           if (data && Array.isArray(data.items)) {
             state.items = data.items;
-            markDataChanged();
             render();
           }
         } catch {}
@@ -1122,28 +1179,14 @@
       const setListForContext = (ctx, newList) => {
         if (!ctx || ctx === 'root') state.items = newList;
         else { const f = findById(ctx); if (f?.item?.type === 'folder') f.item.children = newList; }
-        markDataChanged();
       };
       const removeById = (id) => {
         const found = findById(id);
         if (!found) return null;
         const [removed] = found.list.splice(found.index, 1);
-        markDataChanged();
         return removed || found.item;
       };
-      const faviconFor = (url) => {
-        try {
-          const u = new URL(url);
-          const origin = u.origin;
-          const cached = faviconURLCache.get(origin);
-          if (cached) return cached;
-          const icon = `https://www.google.com/s2/favicons?sz=32&domain_url=${encodeURIComponent(origin)}`;
-          faviconURLCache.set(origin, icon);
-          return icon;
-        } catch {
-          return '';
-        }
-      };
+      const faviconFor = (url) => { try { const u = new URL(url); return `https://www.google.com/s2/favicons?sz=64&domain_url=${encodeURIComponent(u.origin)}`; } catch { return ''; } };
 
       const deleteIcon = `
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1182,7 +1225,7 @@
           return `
             <li class="tile link" role="listitem" data-id="${it.id}" data-type="link" data-index="${idx}" draggable="${editable ? 'true':'false'}" title="${escapeHTML(it.title)} • ${escapeHTML(it.url)}">
               <div class="favicon" aria-hidden="true">
-                ${icon ? `<img src="${icon}" alt="" loading="lazy" decoding="async" fetchpriority="low">` : `
+                ${icon ? `<img src="${icon}" alt="">` : `
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                     <circle cx="12" cy="12" r="4"></circle>
                   </svg>
@@ -1230,7 +1273,7 @@
               : '<path d="M4 21h4l11-11a2.5 2.5 0 0 0-4-4L4 17v4z"></path>';
           }
         }
-        scheduleSave();
+        store.save(state.items);
       };
 
       const openFolder = (folderId) => {
@@ -1288,6 +1331,7 @@
       };
 
       const openDialog = (mode='link', preset = {}, editId = null) => {
+        // Store the element that opened the dialog
         previousFocusElement = document.activeElement;
         
         dialogState = { mode, editId };
@@ -1317,9 +1361,11 @@
         overlay.classList.add('show');
         dialog.classList.add('show');
         
+        // Setup focus trap
         dialogFocusableElements = getFocusableElements(dialog);
         document.addEventListener('keydown', trapFocus);
         
+        // Focus first element
         if (dialogFocusableElements.length > 0) {
           dialogFocusableElements[0].focus();
         } else {
@@ -1330,9 +1376,11 @@
         dialog.classList.remove('show'); 
         overlay.classList.remove('show'); 
         
+        // Remove focus trap
         document.removeEventListener('keydown', trapFocus);
         dialogFocusableElements = [];
         
+        // Return focus to the element that opened the dialog
         if (previousFocusElement && typeof previousFocusElement.focus === 'function') {
           previousFocusElement.focus();
         }
@@ -1393,7 +1441,7 @@
         const id = tile.dataset.id;
         const found = findById(id)?.item; if (!found) return;
 
-        if (type === 'folder') openFolder(id);
+        if (type === 'folder') openFolder(id); // not expected (one-level model), but safe
         else if (type === 'link') {
           if (e.metaKey || e.ctrlKey) {
             window.open(found.url, '_blank', 'noopener');
@@ -1467,7 +1515,6 @@
                 const folder = findById(overId)?.item;
                 folder.children = folder.children || [];
                 folder.children.push(dragged);
-                markDataChanged();
                 render();
               }
               return;
@@ -1523,7 +1570,7 @@
       attachDnD(fvGrid);
 
       on(scAdd, 'click', () => openDialog('link'));
-      on(scAddFolder, 'click', () => openDialog('folder'));
+  on(scAddFolder, 'click', () => openDialog('folder'));
       on(scEdit, 'click', () => { state.edit = !state.edit; render(); });
 
       on(fvBack, 'click', closeFolder);
@@ -1545,9 +1592,7 @@
             if (EXT.isConnected()) {
               try { await EXT.updateNode({ id: found.item.id, title: title || 'Folder' }); await refreshFromExtension(); } catch {}
             } else {
-              found.item.title = title || 'Folder'; 
-              markDataChanged();
-              render();
+              found.item.title = title || 'Folder'; render();
             }
             closeDialog(); return;
           }
@@ -1573,7 +1618,6 @@
           } else {
             if (newLoc === currentLoc) {
               found.item.title = name; found.item.url = url;
-              markDataChanged();
             } else {
               const updated = removeById(dialogState.editId);
               if (updated) {
@@ -1584,7 +1628,6 @@
                   folder.children = folder.children || [];
                   folder.children.push(updated);
                 }
-                markDataChanged();
               }
             }
             render();
@@ -1612,7 +1655,6 @@
               if (folder?.type === 'folder') { folder.children = folder.children || []; folder.children.push(item); }
               else state.items.push(item);
             }
-            markDataChanged();
           }
         } else {
           const name = title || 'New folder';
@@ -1620,7 +1662,6 @@
             try { await EXT.createFolder({ parentId: EXT.getToolbarRootId(), title: name }); await refreshFromExtension(); } catch {}
           } else {
             state.items.push({ id: uid('fld'), type: 'folder', title: name, children: [] });
-            markDataChanged();
           }
         }
 
@@ -1688,7 +1729,6 @@
           } else {
             state.items = state.items.concat(imported);
           }
-          markDataChanged();
           render();
         } catch (err) {
           console.warn('Import failed:', err);
@@ -1698,6 +1738,7 @@
         }
       });
 
+      // Close suggestions when clicking outside
       on(document, 'click', (e) => {
         const isInsideSearch = e.target.closest('.dock');
         if (!isInsideSearch && sugg.classList.contains('show')) {
@@ -1739,7 +1780,6 @@
         if (data && Array.isArray(data.items)) {
           state.items = data.items;
           scImport.setAttribute('disabled', 'true');
-          markDataChanged();
           render();
           try { const el = document.createElement('div'); el.style.cssText='position:fixed;right:8px;bottom:8px;font:12px system-ui;color:#8bbdff;opacity:.6;user-select:none;'; el.textContent='Synced with Bookmarks'; document.body.appendChild(el); setTimeout(()=>el.remove(), 3000); } catch {}
         } else {
