@@ -633,34 +633,84 @@
         }
       };
 
+      const getTopBookmarkSuggestion = () => {
+        const top = sugg.querySelector('li');
+        return (top && top.dataset.type === 'bookmark' && top.dataset.url) ? top.dataset.url : null;
+      };
+
       const submitSearch = () => {
+        const topUrl = getTopBookmarkSuggestion();
+        if (topUrl) { window.location.replace(topUrl); return; }
         const v = q.value.trim();
         if (!v) { q.focus(); return; }
         const url = isValidUrl(v);
-        if (url) {
-          window.location.replace(url);
-          return;
-        }
+        if (url) { window.location.replace(url); return; }
         form.submit();
       };
       on(go, 'click', submitSearch);
       on(form, 'submit', (e) => { 
         const v = q.value.trim();
-        if (!v) { 
-          e.preventDefault(); 
-          q.focus(); 
-          return;
-        }
+        if (!v) { e.preventDefault(); q.focus(); return; }
+        const topUrl = getTopBookmarkSuggestion();
+        if (topUrl) { e.preventDefault(); window.location.replace(topUrl); return; }
         const url = isValidUrl(v);
-        if (url) {
-          e.preventDefault();
-          window.location.replace(url);
-          return;
-        }
+        if (url) { e.preventDefault(); window.location.replace(url); return; }
       });
 
       const SUGGESTIONS_CONFIG = { maxItems: 8, timeout: 3000, fallbackSuggestions: ["news","weather","maps","translate","time","calculator","currency converter","nearby restaurants","youtube","gmail"] };
       let activeIndex = -1, lastQuery = '';
+
+      const SUGG_ICONS = {
+        bookmark: `
+          <svg class="s-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
+            <path d="M6 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18l-7-4-7 4V4z"/>
+          </svg>
+        `,
+        search: `
+          <svg class="s-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="6"></circle>
+            <path d="M16 16l5 5"></path>
+          </svg>
+        `
+      };
+
+      const flattenLinks = (items) => {
+        const out = [];
+        const walk = (arr) => {
+          for (const it of arr || []) {
+            if (!it) continue;
+            if (it.type === 'link' && it.url) out.push({ id: it.id, title: String(it.title||''), url: it.url });
+            else if (it.type === 'folder' && Array.isArray(it.children)) walk(it.children);
+          }
+        };
+        walk(state.items || []);
+        return out;
+      };
+
+      const searchBookmarks = (text, limit = 5) => {
+        const q = (text||'').trim().toLowerCase();
+        if (!q) return [];
+        const links = flattenLinks(state.items);
+        const scored = [];
+        for (const l of links) {
+          let score = 0;
+          const t = (l.title||'').toLowerCase();
+          let host = '';
+          try { host = new URL(l.url).hostname.replace(/^www\./,'').toLowerCase(); } catch {}
+          if (!t && !host) continue;
+          if (t === q) score += 6;
+          else if (t.startsWith(q)) score += 5;
+          else if (t.includes(q)) score += 3;
+          if (host) {
+            if (host === q) score += 4;
+            else if (host.startsWith(q)) score += 3;
+            else if (host.includes(q)) score += 1;
+          }
+          if (score > 0) scored.push({ type: 'bookmark', label: l.title || host || l.url, url: l.url, score });
+        }
+        scored.sort((a, b) => b.score - a.score || a.label.length - b.label.length);
+        return scored.slice(0, limit);
+      };
 
       const cleanupSuggestionScript = () => { const s = document.querySelector('#suggestions-script'); if (s) s.remove(); };
       const getFallbackSuggestions = (text) => SUGGESTIONS_CONFIG.fallbackSuggestions.filter(s => s.includes((text||'').toLowerCase())).slice(0, SUGGESTIONS_CONFIG.maxItems);
@@ -680,21 +730,44 @@
 
       const renderSuggestions = (items) => {
         if (!items || !items.length) { sugg.classList.remove('show'); sugg.innerHTML=''; return; }
-        const safe = (t) => t.replace(/"/g,'&quot;').replace(/</g,'&lt;');
-        sugg.innerHTML = items.slice(0, SUGGESTIONS_CONFIG.maxItems).map((t,i)=>`
-          <li role="option" data-index="${i}" aria-selected="false" title="${safe(t)}">
-            <svg class="s-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6" fill="currentColor" /></svg>
-            <span>${safe(t)}</span>
+        sugg.innerHTML = items.slice(0, SUGGESTIONS_CONFIG.maxItems).map((it,i)=>`
+          <li role="option"
+              data-index="${i}"
+              data-type="${it.type}"
+              ${it.url ? `data-url="${escapeHTML(it.url)}"` : ''}
+              aria-selected="false"
+              title="${escapeHTML(it.type==='bookmark' ? `${it.label} • ${it.url}` : it.label)}">
+            ${it.type === 'bookmark' ? SUGG_ICONS.bookmark : SUGG_ICONS.search}
+            <span>${escapeHTML(it.label)}</span>
           </li>`).join('');
         activeIndex = -1; sugg.classList.add('show');
       };
+
       const debounce = (fn, d=120) => { let id; return (...args)=>{ clearTimeout(id); id=setTimeout(()=>fn(...args), d); }; };
+
       const updateSuggestions = debounce(async (text) => {
         const v = (text||'').trim();
         if (!v) { sugg.classList.remove('show'); sugg.innerHTML=''; lastQuery=''; return; }
         if (v === lastQuery) return;
         lastQuery = v;
-        try { renderSuggestions(await fetchSuggestions(v)); } catch { renderSuggestions(getFallbackSuggestions(v)); }
+        try {
+          const bm = searchBookmarks(v);
+          const web = await fetchSuggestions(v);
+          const seen = new Set(bm.map(x => x.label.toLowerCase()));
+          const webObjs = [];
+          for (const s of web) {
+            const lbl = String(s||'').trim();
+            if (!lbl) continue;
+            const key = lbl.toLowerCase();
+            if (seen.has(key)) continue;
+            seen.add(key);
+            webObjs.push({ type: 'query', label: lbl });
+            if (bm.length + webObjs.length >= SUGGESTIONS_CONFIG.maxItems) break;
+          }
+          renderSuggestions([...bm, ...webObjs]);
+        } catch {
+          renderSuggestions(searchBookmarks(v));
+        }
       }, 120);
 
       const setActive = (idx) => {
@@ -703,6 +776,7 @@
         items.forEach((li,i)=>{ const a=i===idx; li.classList.toggle('active',a); li.setAttribute('aria-selected', a?'true':'false'); });
         activeIndex = idx; if (idx>=0) items[idx].scrollIntoView({block:'nearest'});
       };
+
       function handleSuggestionKeyboard(e) {
         const items = Array.from(sugg.querySelectorAll('li'));
         const isOpen = sugg.classList.contains('show') && items.length>0;
@@ -715,11 +789,27 @@
             if (isOpen) { setActive(activeIndex<=0?items.length-1:activeIndex-1); e.preventDefault(); }
             break;
           case 'Enter':
-            if (isOpen && activeIndex>=0) {
-              const t = items[activeIndex].querySelector('span')?.textContent?.trim();
-              if (t) q.value=t;
-              sugg.classList.remove('show'); activeIndex=-1; e.preventDefault(); submitSearch();
-            } break;
+            if (isOpen) {
+              const idx = activeIndex >= 0 ? activeIndex : 0;
+              const li = items[idx];
+              if (li) {
+                const type = li.dataset.type;
+                const label = li.querySelector('span')?.textContent?.trim();
+                if (type === 'bookmark' && li.dataset.url) {
+                  e.preventDefault();
+                  sugg.classList.remove('show'); activeIndex=-1;
+                  window.location.replace(li.dataset.url);
+                  return;
+                } else if (label) {
+                  e.preventDefault();
+                  q.value = label;
+                  sugg.classList.remove('show'); activeIndex=-1;
+                  submitSearch();
+                  return;
+                }
+              }
+            }
+            break;
           case 'Escape':
             if (isOpen) { sugg.classList.remove('show'); activeIndex=-1; e.preventDefault(); }
             break;
@@ -732,8 +822,14 @@
       on(sugg, 'mousedown', (e)=> e.preventDefault());
       on(sugg, 'click', (e) => {
         const li = e.target.closest('li'); if (!li) return;
-        const t = li.querySelector('span').textContent.trim();
-        q.value = t; sugg.classList.remove('show'); submitSearch();
+        const type = li.dataset.type;
+        if (type === 'bookmark' && li.dataset.url) {
+          sugg.classList.remove('show'); activeIndex=-1;
+          window.location.replace(li.dataset.url);
+          return;
+        }
+        const t = li.querySelector('span')?.textContent?.trim();
+        if (t) { q.value = t; sugg.classList.remove('show'); submitSearch(); }
       });
       on(sugg, 'blur', () => setTimeout(()=>{ sugg.classList.remove('show'); activeIndex=-1; },120));
 
@@ -1441,6 +1537,31 @@
         focusSearch();
       }
 
+      (async () => {
+        const data = await EXT.connect();
+        if (data && Array.isArray(data.items)) {
+          state.items = data.items;
+          scImport.setAttribute('disabled', 'true');
+          render();
+          try { const el = document.createElement('div'); el.style.cssText='position:fixed;right:8px;bottom:8px;font:12px system-ui;color:#8bbdff;opacity:.6;user-select:none;'; el.textContent='Synced with Bookmarks'; document.body.appendChild(el); setTimeout(()=>el.remove(), 3000); } catch {}
+        } else {
+          render();
+        }
+        
+        focusSearch();
+      })();
+    })();
+  </script>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>
       (async () => {
         const data = await EXT.connect();
         if (data && Array.isArray(data.items)) {
