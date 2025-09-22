@@ -370,7 +370,7 @@
     <div id="bar" class="bar" role="search" aria-label="Search">
       <!-- Search form -->
       <form id="form" class="form" action="https://www.google.com/search" method="GET" autocomplete="off" target="_self">
-        <input id="q" class="q" name="q" type="text" inputmode="search" spellcheck="false" aria-label="Search Google" placeholder="Search Google" />
+        <input id="q" class="q" name="q" type="text" inputmode="search" spellcheck="false" aria-label="Search Google" placeholder="Search Google" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="suggest" aria-haspopup="listbox" />
       </form>
 
       <!-- Actions -->
@@ -407,7 +407,7 @@
     </div>
 
     <!-- Suggestions -->
-    <ul id="sugg" class="suggest" role="listbox" aria-label="Search suggestions"></ul>
+    <ul id="suggest" class="suggest" role="listbox" aria-label="Search suggestions"></ul>
   </div>
 
   <!-- Shortcuts -->
@@ -595,7 +595,7 @@
       const voice = $('#voice');
       const lensBtn = $('#lensBtn');
       const ai = $('#ai');
-      const sugg = $('#sugg');
+      const sugg = $('#suggest');
 
       const VOICE_ICONS = {
         mic: `
@@ -654,7 +654,7 @@
       });
 
       const SUGGESTIONS_CONFIG = { maxItems: 8, timeout: 3000, fallbackSuggestions: ["news","weather","maps","translate","time","calculator","currency converter","nearby restaurants","youtube","gmail"] };
-      let activeIndex = -1, lastQuery = '';
+      let activeIndex = -1, lastQuery = '', suggestionRequestId = 0;
 
       const SUGG_ICONS = {
         bookmark: `
@@ -683,26 +683,57 @@
         return out;
       };
 
+      // Bookmark search index for better performance
+      let bookmarkIndex = [];
+      let lastBookmarkHash = '';
+
+      const buildBookmarkIndex = () => {
+        const links = flattenLinks(state.items);
+        const currentHash = JSON.stringify(links.map(l => ({ title: l.title, url: l.url })));
+        
+        // Only rebuild if bookmarks have changed
+        if (currentHash === lastBookmarkHash) return;
+        
+        lastBookmarkHash = currentHash;
+        bookmarkIndex = links.map(l => {
+          let host = '';
+          try { host = new URL(l.url).hostname.replace(/^www\./,'').toLowerCase(); } catch {}
+          
+          return {
+            title: (l.title||'').toLowerCase(),
+            url: l.url,
+            label: l.title || host || l.url,
+            host,
+            searchText: `${l.title||''} ${host}`.toLowerCase()
+          };
+        }).filter(item => item.title || item.host);
+      };
+
       const searchBookmarks = (text, limit = 5) => {
         const q = (text||'').trim().toLowerCase();
         if (!q) return [];
-        const links = flattenLinks(state.items);
+        
+        // Ensure index is built
+        buildBookmarkIndex();
+        
         const scored = [];
-        for (const l of links) {
+        for (const item of bookmarkIndex) {
           let score = 0;
-          const t = (l.title||'').toLowerCase();
-          let host = '';
-          try { host = new URL(l.url).hostname.replace(/^www\./,'').toLowerCase(); } catch {}
-          if (!t && !host) continue;
-          if (t === q) score += 6;
-          else if (t.startsWith(q)) score += 5;
-          else if (t.includes(q)) score += 3;
+          const { title, host, searchText } = item;
+          
+          if (title === q) score += 6;
+          else if (title.startsWith(q)) score += 5;
+          else if (title.includes(q)) score += 3;
+          
           if (host) {
             if (host === q) score += 4;
             else if (host.startsWith(q)) score += 3;
             else if (host.includes(q)) score += 1;
           }
-          if (score > 0) scored.push({ type: 'bookmark', label: l.title || host || l.url, url: l.url, score });
+          
+          if (score > 0) {
+            scored.push({ type: 'bookmark', label: item.label, url: item.url, score });
+          }
         }
         scored.sort((a, b) => b.score - a.score || a.label.length - b.label.length);
         return scored.slice(0, limit);
@@ -710,22 +741,54 @@
 
       const cleanupSuggestionScript = () => { const s = document.querySelector('#suggestions-script'); if (s) s.remove(); };
       const getFallbackSuggestions = (text) => SUGGESTIONS_CONFIG.fallbackSuggestions.filter(s => s.includes((text||'').toLowerCase())).slice(0, SUGGESTIONS_CONFIG.maxItems);
-      const fetchSuggestions = async (text) => new Promise((resolve) => {
+      const fetchSuggestions = async (text, requestId) => new Promise((resolve) => {
         try {
           cleanupSuggestionScript();
           const cb = `suggCallback_${Date.now()}_${Math.random().toString(36).slice(2,9)}`;
-          window[cb] = (data) => { try { delete window[cb]; cleanupSuggestionScript(); resolve(Array.isArray(data?.[1]) ? data[1] : []); } catch { resolve([]); } };
+          window[cb] = (data) => { 
+            try { 
+              delete window[cb]; 
+              cleanupSuggestionScript(); 
+              // Check if this is still the current request
+              if (requestId === suggestionRequestId) {
+                resolve(Array.isArray(data?.[1]) ? data[1] : []); 
+              }
+            } catch { resolve([]); } 
+          };
           const script = document.createElement('script');
           script.id = 'suggestions-script';
           script.src = `https://suggestqueries.google.com/complete/search?client=firefox&hl=en&callback=${cb}&q=${encodeURIComponent(text)}`;
-          script.onerror = () => { delete window[cb]; cleanupSuggestionScript(); resolve(getFallbackSuggestions(text)); };
+          script.onerror = () => { 
+            delete window[cb]; 
+            cleanupSuggestionScript(); 
+            if (requestId === suggestionRequestId) {
+              resolve(getFallbackSuggestions(text)); 
+            }
+          };
           document.head.appendChild(script);
-          setTimeout(() => { if (window[cb]) { delete window[cb]; cleanupSuggestionScript(); resolve(getFallbackSuggestions(text)); } }, SUGGESTIONS_CONFIG.timeout);
-        } catch { resolve(getFallbackSuggestions(text)); }
+          setTimeout(() => { 
+            if (window[cb]) { 
+              delete window[cb]; 
+              cleanupSuggestionScript(); 
+              if (requestId === suggestionRequestId) {
+                resolve(getFallbackSuggestions(text)); 
+              }
+            } 
+          }, SUGGESTIONS_CONFIG.timeout);
+        } catch { 
+          if (requestId === suggestionRequestId) {
+            resolve(getFallbackSuggestions(text)); 
+          }
+        }
       });
 
       const renderSuggestions = (items) => {
-        if (!items || !items.length) { sugg.classList.remove('show'); sugg.innerHTML=''; return; }
+        if (!items || !items.length) { 
+          sugg.classList.remove('show'); 
+          sugg.innerHTML=''; 
+          updateAriaExpanded(false);
+          return; 
+        }
         sugg.innerHTML = items.slice(0, SUGGESTIONS_CONFIG.maxItems).map((it,i)=>`
           <li role="option"
               data-index="${i}"
@@ -736,19 +799,44 @@
             ${it.type === 'bookmark' ? SUGG_ICONS.bookmark : SUGG_ICONS.search}
             <span>${escapeHTML(it.label)}</span>
           </li>`).join('');
-        activeIndex = -1; sugg.classList.add('show');
+        activeIndex = -1; 
+        sugg.classList.add('show');
+        updateAriaExpanded(true);
       };
 
-      const debounce = (fn, d=120) => { let id; return (...args)=>{ clearTimeout(id); id=setTimeout(()=>fn(...args), d); }; };
+      const debounce = (fn, d=120) => { 
+        let id, idleId; 
+        return (...args)=>{ 
+          clearTimeout(id); 
+          if (idleId) cancelIdleCallback(idleId);
+          
+          id = setTimeout(()=>{
+            // Use requestIdleCallback for non-urgent operations on low-power devices
+            if (window.requestIdleCallback && navigator.hardwareConcurrency <= 4) {
+              idleId = requestIdleCallback(() => fn(...args), { timeout: 500 });
+            } else {
+              fn(...args);
+            }
+          }, d); 
+        }; 
+      };
 
       const updateSuggestions = debounce(async (text) => {
         const v = (text||'').trim();
-        if (!v) { sugg.classList.remove('show'); sugg.innerHTML=''; lastQuery=''; return; }
+        if (!v) { sugg.classList.remove('show'); sugg.innerHTML=''; lastQuery=''; updateAriaExpanded(false); return; }
         if (v === lastQuery) return;
         lastQuery = v;
+        
+        // Generate unique request ID to prevent stale responses
+        const currentRequestId = ++suggestionRequestId;
+        
         try {
           const bm = searchBookmarks(v);
-          const web = await fetchSuggestions(v);
+          const web = await fetchSuggestions(v, currentRequestId);
+          
+          // Check if this response is still current
+          if (currentRequestId !== suggestionRequestId) return;
+          
           const seen = new Set(bm.map(x => x.label.toLowerCase()));
           const webObjs = [];
           for (const s of web) {
@@ -762,15 +850,37 @@
           }
           renderSuggestions([...bm, ...webObjs]);
         } catch {
+          // Check if this response is still current
+          if (currentRequestId !== suggestionRequestId) return;
           renderSuggestions(searchBookmarks(v));
         }
       }, 120);
 
+      const updateAriaExpanded = (expanded) => {
+        q.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        if (!expanded) {
+          q.removeAttribute('aria-activedescendant');
+        }
+      };
+
       const setActive = (idx) => {
         const items = Array.from(sugg.querySelectorAll('li'));
-        if (!items.length) { activeIndex = -1; return; }
-        items.forEach((li,i)=>{ const a=i===idx; li.classList.toggle('active',a); li.setAttribute('aria-selected', a?'true':'false'); });
-        activeIndex = idx; if (idx>=0) items[idx].scrollIntoView({block:'nearest'});
+        if (!items.length) { activeIndex = -1; q.removeAttribute('aria-activedescendant'); return; }
+        
+        items.forEach((li,i)=>{ 
+          const a=i===idx; 
+          li.classList.toggle('active',a); 
+          li.setAttribute('aria-selected', a?'true':'false');
+          if (a) li.id = li.id || `suggestion-${i}`;
+        });
+        
+        activeIndex = idx; 
+        if (idx>=0) {
+          items[idx].scrollIntoView({block:'nearest'});
+          q.setAttribute('aria-activedescendant', items[idx].id);
+        } else {
+          q.removeAttribute('aria-activedescendant');
+        }
       };
 
       function handleSuggestionKeyboard(e) {
@@ -793,13 +903,13 @@
                 const label = li.querySelector('span')?.textContent?.trim();
                 if (type === 'bookmark' && li.dataset.url) {
                   e.preventDefault();
-                  sugg.classList.remove('show'); activeIndex=-1;
+                  sugg.classList.remove('show'); activeIndex=-1; updateAriaExpanded(false);
                   window.location.replace(li.dataset.url);
                   return;
                 } else if (label) {
                   e.preventDefault();
                   q.value = label;
-                  sugg.classList.remove('show'); activeIndex=-1;
+                  sugg.classList.remove('show'); activeIndex=-1; updateAriaExpanded(false);
                   submitSearch();
                   return;
                 }
@@ -807,27 +917,31 @@
             }
             break;
           case 'Escape':
-            if (isOpen) { sugg.classList.remove('show'); activeIndex=-1; e.preventDefault(); }
+            if (isOpen) { sugg.classList.remove('show'); activeIndex=-1; updateAriaExpanded(false); e.preventDefault(); }
             break;
         }
       }
 
-      on(q, 'input', (e)=> updateSuggestions(e.target.value));
-      on(q, 'focus', () => { const v=q.value.trim(); if (v) updateSuggestions(v); });
+      let isComposing = false;
+
+      on(q, 'input', (e)=> { if (!isComposing) updateSuggestions(e.target.value); });
+      on(q, 'compositionstart', () => { isComposing = true; });
+      on(q, 'compositionend', (e) => { isComposing = false; updateSuggestions(e.target.value); });
+      on(q, 'focus', () => { const v=q.value.trim(); if (v && !isComposing) updateSuggestions(v); });
       on(q, 'keydown', handleSuggestionKeyboard);
       on(sugg, 'mousedown', (e)=> e.preventDefault());
       on(sugg, 'click', (e) => {
         const li = e.target.closest('li'); if (!li) return;
         const type = li.dataset.type;
         if (type === 'bookmark' && li.dataset.url) {
-          sugg.classList.remove('show'); activeIndex=-1;
+          sugg.classList.remove('show'); activeIndex=-1; updateAriaExpanded(false);
           window.location.replace(li.dataset.url);
           return;
         }
         const t = li.querySelector('span')?.textContent?.trim();
-        if (t) { q.value = t; sugg.classList.remove('show'); submitSearch(); }
+        if (t) { q.value = t; sugg.classList.remove('show'); updateAriaExpanded(false); submitSearch(); }
       });
-      on(sugg, 'blur', () => setTimeout(()=>{ sugg.classList.remove('show'); activeIndex=-1; },120));
+      on(sugg, 'blur', () => setTimeout(()=>{ sugg.classList.remove('show'); activeIndex=-1; updateAriaExpanded(false); },120));
 
       let rec = null; let isListening = false;
       on(voice, 'click', () => {
@@ -1117,6 +1231,33 @@
       };
 
       let dialogState = { mode: 'link', editId: null };
+      let dialogFocusableElements = [];
+      let previousFocusElement = null;
+
+      const getFocusableElements = (container) => {
+        return Array.from(container.querySelectorAll(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])'
+        ));
+      };
+
+      const trapFocus = (e) => {
+        if (e.key !== 'Tab') return;
+        
+        const firstElement = dialogFocusableElements[0];
+        const lastElement = dialogFocusableElements[dialogFocusableElements.length - 1];
+
+        if (e.shiftKey) {
+          if (document.activeElement === firstElement) {
+            e.preventDefault();
+            lastElement.focus();
+          }
+        } else {
+          if (document.activeElement === lastElement) {
+            e.preventDefault();
+            firstElement.focus();
+          }
+        }
+      };
 
       const buildLocationOptions = () => {
         const options = [['root', 'Top level']];
@@ -1125,6 +1266,9 @@
       };
 
       const openDialog = (mode='link', preset = {}, editId = null) => {
+        // Store the element that opened the dialog
+        previousFocusElement = document.activeElement;
+        
         dialogState = { mode, editId };
         scDialogTitle.textContent =
           editId ? (mode === 'folder' ? 'Rename folder' : 'Edit shortcut')
@@ -1151,9 +1295,32 @@
         inputUrl.value = preset.url || '';
         overlay.classList.add('show');
         dialog.classList.add('show');
-        inputTitle.focus();
+        
+        // Setup focus trap
+        dialogFocusableElements = getFocusableElements(dialog);
+        document.addEventListener('keydown', trapFocus);
+        
+        // Focus first element
+        if (dialogFocusableElements.length > 0) {
+          dialogFocusableElements[0].focus();
+        } else {
+          inputTitle.focus();
+        }
       };
-      const closeDialog = () => { dialog.classList.remove('show'); overlay.classList.remove('show'); };
+      const closeDialog = () => { 
+        dialog.classList.remove('show'); 
+        overlay.classList.remove('show'); 
+        
+        // Remove focus trap
+        document.removeEventListener('keydown', trapFocus);
+        dialogFocusableElements = [];
+        
+        // Return focus to the element that opened the dialog
+        if (previousFocusElement && typeof previousFocusElement.focus === 'function') {
+          previousFocusElement.focus();
+        }
+        previousFocusElement = null;
+      };
 
       const openEdit = (id) => {
         const found = findById(id);
@@ -1503,6 +1670,16 @@
           alert('Could not import file. Please ensure it is a valid shortcuts JSON.');
         } finally {
           scImportFile.value = '';
+        }
+      });
+
+      // Close suggestions when clicking outside
+      on(document, 'click', (e) => {
+        const isInsideSearch = e.target.closest('.dock');
+        if (!isInsideSearch && sugg.classList.contains('show')) {
+          sugg.classList.remove('show');
+          activeIndex = -1;
+          updateAriaExpanded(false);
         }
       });
 
