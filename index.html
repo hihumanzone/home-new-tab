@@ -871,20 +871,19 @@
          try {
            // Get bookmarks - they should already be shown by showInstantBookmarks
            const bm = searchBookmarks(v);
--          
--          // Fetch web suggestions asynchronously
--          const web = await fetchSuggestions(v, currentRequestId);
-+          // Don't fetch web suggestions until the query is at least 2 chars
-+          if (v.length < 2) {
-+            // Show only bookmarks for very short queries
-+            if (bm.length > 0 && currentRequestId === suggestionRequestId) {
-+              renderSuggestions(bm);
-+            }
-+            return;
-+          }
-+          // Fetch web suggestions asynchronously for longer queries
-+          const web = await fetchSuggestions(v, currentRequestId);
-           
+
+           // Don't fetch web suggestions until the query is at least 2 chars
+           if (v.length < 2) {
+           // Show only bookmarks for very short queries
+           if (bm.length > 0 && currentRequestId === suggestionRequestId) {
+             renderSuggestions(bm);
+           }
+           return;
+           }
+
+           // Fetch web suggestions asynchronously for longer queries
+           const web = await fetchSuggestions(v, currentRequestId);
+     
            // Check if this response is still current
            if (currentRequestId !== suggestionRequestId) return;
            
@@ -892,7 +891,7 @@
            const seen = new Set(bm.map(x => x.label.toLowerCase()));
            const webObjs = [];
            for (const s of web) {
-             const lbl = String(s||'').trim();
+           const lbl = String(s||'').trim();
              if (!lbl) continue;
              const key = lbl.toLowerCase();
              if (seen.has(key)) continue;
