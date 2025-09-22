@@ -687,54 +687,84 @@
       let bookmarkIndex = [];
       let lastBookmarkHash = '';
 
+      const invalidateBookmarkIndex = () => {
+        lastBookmarkHash = '';
+        bookmarkIndex = [];
+      };
+
       const buildBookmarkIndex = () => {
         const links = flattenLinks(state.items);
         const currentHash = JSON.stringify(links.map(l => ({ title: l.title, url: l.url })));
         
         // Only rebuild if bookmarks have changed
-        if (currentHash === lastBookmarkHash) return;
+        if (currentHash === lastBookmarkHash) return bookmarkIndex;
         
         lastBookmarkHash = currentHash;
         bookmarkIndex = links.map(l => {
           let host = '';
-          try { host = new URL(l.url).hostname.replace(/^www\./,'').toLowerCase(); } catch {}
+          try { 
+            const url = new URL(l.url);
+            host = url.hostname.replace(/^www\./,'').toLowerCase();
+          } catch {}
+          
+          const title = (l.title || '').toLowerCase();
+          const label = l.title || host || l.url;
           
           return {
-            title: (l.title||'').toLowerCase(),
+            title,
             url: l.url,
-            label: l.title || host || l.url,
+            label,
             host,
-            searchText: `${l.title||''} ${host}`.toLowerCase()
+            searchTokens: [title, host, label.toLowerCase()].filter(Boolean)
           };
         }).filter(item => item.title || item.host);
+        
+        return bookmarkIndex;
       };
 
+      /**
+       * Fast bookmark search using pre-built index
+       * Searches through titles and hostnames with scoring
+       * @param {string} text - Search query
+       * @param {number} limit - Maximum results to return
+       * @returns {Array} Scored bookmark results
+       */
       const searchBookmarks = (text, limit = 5) => {
         const q = (text||'').trim().toLowerCase();
         if (!q) return [];
         
-        // Ensure index is built
-        buildBookmarkIndex();
+        // Ensure index is built and get it
+        const index = buildBookmarkIndex();
         
         const scored = [];
-        for (const item of bookmarkIndex) {
+        for (const item of index) {
           let score = 0;
-          const { title, host, searchText } = item;
+          const { title, host, searchTokens } = item;
           
-          if (title === q) score += 6;
-          else if (title.startsWith(q)) score += 5;
-          else if (title.includes(q)) score += 3;
-          
-          if (host) {
-            if (host === q) score += 4;
-            else if (host.startsWith(q)) score += 3;
-            else if (host.includes(q)) score += 1;
+          // Exact matches get highest score
+          if (title === q || host === q) {
+            score += 10;
+          }
+          // Prefix matches get high score
+          else if (title.startsWith(q) || host.startsWith(q)) {
+            score += 8;
+          }
+          // Substring matches get medium score
+          else {
+            for (const token of searchTokens) {
+              if (token.includes(q)) {
+                score += 3;
+                break;
+              }
+            }
           }
           
           if (score > 0) {
             scored.push({ type: 'bookmark', label: item.label, url: item.url, score });
           }
         }
+        
+        // Sort by score (descending) then by label length (ascending)
         scored.sort((a, b) => b.score - a.score || a.label.length - b.label.length);
         return scored.slice(0, limit);
       };
@@ -805,22 +835,17 @@
       };
 
       const debounce = (fn, d=120) => { 
-        let id, idleId; 
+        let id; 
         return (...args)=>{ 
           clearTimeout(id); 
-          if (idleId) cancelIdleCallback(idleId);
-          
-          id = setTimeout(()=>{
-            // Use requestIdleCallback for non-urgent operations on low-power devices
-            if (window.requestIdleCallback && navigator.hardwareConcurrency <= 4) {
-              idleId = requestIdleCallback(() => fn(...args), { timeout: 500 });
-            } else {
-              fn(...args);
-            }
-          }, d); 
+          id = setTimeout(()=> fn(...args), d); 
         }; 
       };
 
+      /**
+       * Debounced function to fetch and merge web suggestions with bookmarks
+       * Only updates suggestions if web results are available
+       */
       const updateSuggestions = debounce(async (text) => {
         const v = (text||'').trim();
         if (!v) { sugg.classList.remove('show'); sugg.innerHTML=''; lastQuery=''; updateAriaExpanded(false); return; }
@@ -831,19 +856,16 @@
         const currentRequestId = ++suggestionRequestId;
         
         try {
+          // Get bookmarks - they should already be shown by showInstantBookmarks
           const bm = searchBookmarks(v);
           
-          // Show bookmarks instantly since they're local
-          if (bm.length > 0) {
-            renderSuggestions(bm);
-          }
-          
-          // Fetch web suggestions asynchronously and add them below bookmarks
+          // Fetch web suggestions asynchronously
           const web = await fetchSuggestions(v, currentRequestId);
           
           // Check if this response is still current
           if (currentRequestId !== suggestionRequestId) return;
           
+          // Merge web suggestions with bookmarks, avoiding duplicates
           const seen = new Set(bm.map(x => x.label.toLowerCase()));
           const webObjs = [];
           for (const s of web) {
@@ -856,19 +878,25 @@
             if (bm.length + webObjs.length >= SUGGESTIONS_CONFIG.maxItems) break;
           }
           
-          // Render both bookmarks and web suggestions together, or just bookmarks if no web results
-          if (webObjs.length > 0 || bm.length === 0) {
+          // Only update if we have web suggestions to add
+          if (webObjs.length > 0) {
             renderSuggestions([...bm, ...webObjs]);
           }
-          // If we already showed bookmarks and there are no web results, keep showing just bookmarks
         } catch {
-          // Check if this response is still current
-          if (currentRequestId !== suggestionRequestId) return;
-          renderSuggestions(searchBookmarks(v));
+          // On error, just show bookmarks if we haven't already
+          if (currentRequestId === suggestionRequestId) {
+            const bm = searchBookmarks(v);
+            if (bm.length > 0) {
+              renderSuggestions(bm);
+            }
+          }
         }
       }, 120);
 
-      // Non-debounced function to show bookmarks instantly
+      /**
+       * Shows bookmark suggestions immediately without debouncing
+       * Takes advantage of local data being instantly available
+       */
       const showInstantBookmarks = (text) => {
         const v = (text||'').trim();
         if (!v) return;
@@ -945,17 +973,26 @@
         }
       }
 
+      // Combined input handler for better performance and clarity
+      const handleSearchInput = (value) => {
+        if (!isComposing) {
+          showInstantBookmarks(value);
+          updateSuggestions(value);
+        }
+      };
+
       let isComposing = false;
 
-      on(q, 'input', (e)=> { 
-        if (!isComposing) {
-          showInstantBookmarks(e.target.value); // Show bookmarks instantly
-          updateSuggestions(e.target.value); // Debounced web suggestions
-        }
-      });
+      on(q, 'input', (e) => handleSearchInput(e.target.value));
       on(q, 'compositionstart', () => { isComposing = true; });
-      on(q, 'compositionend', (e) => { isComposing = false; showInstantBookmarks(e.target.value); updateSuggestions(e.target.value); });
-      on(q, 'focus', () => { const v=q.value.trim(); if (v && !isComposing) { showInstantBookmarks(v); updateSuggestions(v); } });
+      on(q, 'compositionend', (e) => { 
+        isComposing = false; 
+        handleSearchInput(e.target.value);
+      });
+      on(q, 'focus', () => { 
+        const v = q.value.trim(); 
+        if (v) handleSearchInput(v);
+      });
       on(q, 'keydown', handleSuggestionKeyboard);
       on(sugg, 'mousedown', (e)=> e.preventDefault());
       on(sugg, 'click', (e) => {
