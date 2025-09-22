@@ -832,6 +832,13 @@
         
         try {
           const bm = searchBookmarks(v);
+          
+          // Show bookmarks instantly since they're local
+          if (bm.length > 0) {
+            renderSuggestions(bm);
+          }
+          
+          // Fetch web suggestions asynchronously and add them below bookmarks
           const web = await fetchSuggestions(v, currentRequestId);
           
           // Check if this response is still current
@@ -848,13 +855,29 @@
             webObjs.push({ type: 'query', label: lbl });
             if (bm.length + webObjs.length >= SUGGESTIONS_CONFIG.maxItems) break;
           }
-          renderSuggestions([...bm, ...webObjs]);
+          
+          // Render both bookmarks and web suggestions together, or just bookmarks if no web results
+          if (webObjs.length > 0 || bm.length === 0) {
+            renderSuggestions([...bm, ...webObjs]);
+          }
+          // If we already showed bookmarks and there are no web results, keep showing just bookmarks
         } catch {
           // Check if this response is still current
           if (currentRequestId !== suggestionRequestId) return;
           renderSuggestions(searchBookmarks(v));
         }
       }, 120);
+
+      // Non-debounced function to show bookmarks instantly
+      const showInstantBookmarks = (text) => {
+        const v = (text||'').trim();
+        if (!v) return;
+        
+        const bm = searchBookmarks(v);
+        if (bm.length > 0) {
+          renderSuggestions(bm);
+        }
+      };
 
       const updateAriaExpanded = (expanded) => {
         q.setAttribute('aria-expanded', expanded ? 'true' : 'false');
@@ -924,10 +947,15 @@
 
       let isComposing = false;
 
-      on(q, 'input', (e)=> { if (!isComposing) updateSuggestions(e.target.value); });
+      on(q, 'input', (e)=> { 
+        if (!isComposing) {
+          showInstantBookmarks(e.target.value); // Show bookmarks instantly
+          updateSuggestions(e.target.value); // Debounced web suggestions
+        }
+      });
       on(q, 'compositionstart', () => { isComposing = true; });
-      on(q, 'compositionend', (e) => { isComposing = false; updateSuggestions(e.target.value); });
-      on(q, 'focus', () => { const v=q.value.trim(); if (v && !isComposing) updateSuggestions(v); });
+      on(q, 'compositionend', (e) => { isComposing = false; showInstantBookmarks(e.target.value); updateSuggestions(e.target.value); });
+      on(q, 'focus', () => { const v=q.value.trim(); if (v && !isComposing) { showInstantBookmarks(v); updateSuggestions(v); } });
       on(q, 'keydown', handleSuggestionKeyboard);
       on(sugg, 'mousedown', (e)=> e.preventDefault());
       on(sugg, 'click', (e) => {
