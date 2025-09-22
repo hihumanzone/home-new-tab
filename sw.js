@@ -1,4 +1,4 @@
-const VERSION = 'v1.0.3';
+const VERSION = 'v1.0.2';
 const CACHE_NAME = `home-new-tab-${VERSION}`;
 const IMG_CACHE = `home-new-tab-img-${VERSION}`;
 const PRECACHE = ['./', './index.html', './wallpaper-dark.jpg'];
