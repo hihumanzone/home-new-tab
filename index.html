@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Home</title>
 
-  <link rel="preload" href="./wallpaper-dark.jpg" as="image" />
+  <link rel="preload" href="./wallpaper-dark.jpg" as="image" fetchpriority="low" />
 
   <style>
     :root{
@@ -173,6 +173,14 @@
     .s-icon { width: 18px; height: 18px; opacity: .7; }
 
     @media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
+    @media (prefers-reduced-motion: reduce) {
+      /* Tone down heavy shadows to reduce paint cost on motion-sensitive setups */
+      :root{
+        --shadow: 0 4px 16px rgba(0,0,0,.30);
+        --shadow-strong: 0 8px 24px rgba(0,0,0,.35);
+      }
+      .voice.recording { animation: none; }
+    }
 
     /* Shortcuts */
     .shortcuts {
@@ -358,6 +366,15 @@
       color: var(--ink); border-radius: 10px;
     }
 
+    /* Render/paint savings for large sections */
+    .shortcuts,
+    .folder-view {
+      content-visibility: auto;
+      contain: content;
+      /* Reasonable intrinsic size to avoid layout shifts before reveal */
+      contain-intrinsic-size: 600px 400px;
+    }
+
     @media (max-width: 520px){
       :root { --tile: 86px; }
       .shortcuts { width: min(680px, calc(100vw - 1.5rem)); }
@@ -536,7 +553,14 @@
           if (event.source !== window) return;
           const d = event.data;
           if (d && d.__ntb_ready === true) {
-            EXT.connect(1).then((data) => { if (data && Array.isArray(data.items)) { state.items = data.items; scImport.setAttribute('disabled','true'); render(); } });
+            EXT.connect(1).then((data) => {
+              if (data && Array.isArray(data.items)) {
+                state.items = data.items;
+                bumpBookmarksRevision();
+                scImport.setAttribute('disabled','true');
+                render();
+              }
+            });
             return;
           }
           if (d && d.__ntb === true && typeof d.ok === 'boolean') {
@@ -683,33 +707,22 @@
         return out;
       };
 
-      // Bookmark search index for better performance
+      // Bookmark search index with cheap, reliable invalidation (revision counter)
       let bookmarkIndex = [];
-      let lastBookmarkHash = '';
-
-      const invalidateBookmarkIndex = () => {
-        lastBookmarkHash = '';
-        bookmarkIndex = [];
-      };
-
+      let bookmarksRevision = 0;
+      let lastIndexedRevision = -1;
+      const bumpBookmarksRevision = () => { bookmarksRevision++; };
       const buildBookmarkIndex = () => {
+        if (lastIndexedRevision === bookmarksRevision && bookmarkIndex.length) return bookmarkIndex;
         const links = flattenLinks(state.items);
-        const currentHash = JSON.stringify(links.map(l => ({ title: l.title, url: l.url })));
-        
-        // Only rebuild if bookmarks have changed
-        if (currentHash === lastBookmarkHash) return bookmarkIndex;
-        
-        lastBookmarkHash = currentHash;
         bookmarkIndex = links.map(l => {
           let host = '';
-          try { 
+          try {
             const url = new URL(l.url);
             host = url.hostname.replace(/^www\./,'').toLowerCase();
           } catch {}
-          
           const title = (l.title || '').toLowerCase();
           const label = l.title || host || l.url;
-          
           return {
             title,
             url: l.url,
@@ -718,7 +731,7 @@
             searchTokens: [title, host, label.toLowerCase()].filter(Boolean)
           };
         }).filter(item => item.title || item.host);
-        
+        lastIndexedRevision = bookmarksRevision;
         return bookmarkIndex;
       };
 
@@ -847,51 +860,62 @@
        * Only updates suggestions if web results are available
        */
       const updateSuggestions = debounce(async (text) => {
-        const v = (text||'').trim();
-        if (!v) { sugg.classList.remove('show'); sugg.innerHTML=''; lastQuery=''; updateAriaExpanded(false); return; }
-        if (v === lastQuery) return;
-        lastQuery = v;
-        
-        // Generate unique request ID to prevent stale responses
-        const currentRequestId = ++suggestionRequestId;
-        
-        try {
-          // Get bookmarks - they should already be shown by showInstantBookmarks
-          const bm = searchBookmarks(v);
-          
-          // Fetch web suggestions asynchronously
-          const web = await fetchSuggestions(v, currentRequestId);
-          
-          // Check if this response is still current
-          if (currentRequestId !== suggestionRequestId) return;
-          
-          // Merge web suggestions with bookmarks, avoiding duplicates
-          const seen = new Set(bm.map(x => x.label.toLowerCase()));
-          const webObjs = [];
-          for (const s of web) {
-            const lbl = String(s||'').trim();
-            if (!lbl) continue;
-            const key = lbl.toLowerCase();
-            if (seen.has(key)) continue;
-            seen.add(key);
-            webObjs.push({ type: 'query', label: lbl });
+         const v = (text||'').trim();
+         if (!v) { sugg.classList.remove('show'); sugg.innerHTML=''; lastQuery=''; updateAriaExpanded(false); return; }
+         if (v === lastQuery) return;
+         lastQuery = v;
+         
+         // Generate unique request ID to prevent stale responses
+         const currentRequestId = ++suggestionRequestId;
+         
+         try {
+           // Get bookmarks - they should already be shown by showInstantBookmarks
+           const bm = searchBookmarks(v);
+-          
+-          // Fetch web suggestions asynchronously
+-          const web = await fetchSuggestions(v, currentRequestId);
++          // Don't fetch web suggestions until the query is at least 2 chars
++          if (v.length < 2) {
++            // Show only bookmarks for very short queries
++            if (bm.length > 0 && currentRequestId === suggestionRequestId) {
++              renderSuggestions(bm);
++            }
++            return;
++          }
++          // Fetch web suggestions asynchronously for longer queries
++          const web = await fetchSuggestions(v, currentRequestId);
+           
+           // Check if this response is still current
+           if (currentRequestId !== suggestionRequestId) return;
+           
+           // Merge web suggestions with bookmarks, avoiding duplicates
+           const seen = new Set(bm.map(x => x.label.toLowerCase()));
+           const webObjs = [];
+           for (const s of web) {
+             const lbl = String(s||'').trim();
+             if (!lbl) continue;
+             const key = lbl.toLowerCase();
+             if (seen.has(key)) continue;
+             seen.add(key);
+-           webObjs.push({ type: 'query', label: lbl });
++           webObjs.push({ type: 'search', label: lbl });
             if (bm.length + webObjs.length >= SUGGESTIONS_CONFIG.maxItems) break;
-          }
-          
-          // Only update if we have web suggestions to add
-          if (webObjs.length > 0) {
-            renderSuggestions([...bm, ...webObjs]);
-          }
-        } catch {
-          // On error, just show bookmarks if we haven't already
-          if (currentRequestId === suggestionRequestId) {
-            const bm = searchBookmarks(v);
-            if (bm.length > 0) {
-              renderSuggestions(bm);
-            }
-          }
-        }
-      }, 120);
+           }
+           
+           // Only update if we have web suggestions to add
+           if (webObjs.length > 0) {
+             renderSuggestions([...bm, ...webObjs]);
+           }
+         } catch {
+           // On error, just show bookmarks if we haven't already
+           if (currentRequestId === suggestionRequestId) {
+             const bm = searchBookmarks(v);
+             if (bm.length > 0) {
+               renderSuggestions(bm);
+             }
+           }
+         }
+      }, 180);
 
       /**
        * Shows bookmark suggestions immediately without debouncing
@@ -1110,9 +1134,19 @@
             return Array.isArray(parsed.items) ? parsed.items : null;
           } catch { return null; }
         },
+        _saveTimer: null,
         save(items) {
           if (EXT.isConnected()) return;
-          try { localStorage.setItem(this.key, JSON.stringify({ items })); } catch {}
+          const doSave = () => {
+            try { localStorage.setItem(this.key, JSON.stringify({ items })); } catch {}
+          };
+          if ('requestIdleCallback' in window) {
+            if (this._saveTimer) { try { window.cancelIdleCallback(this._saveTimer); } catch {} }
+            this._saveTimer = window.requestIdleCallback(doSave, { timeout: 800 });
+          } else {
+            if (this._saveTimer) { clearTimeout(this._saveTimer); }
+            this._saveTimer = setTimeout(doSave, 250);
+          }
         },
         export(items) {
           const payload = { version: 1, exportedAt: new Date().toISOString(), items };
@@ -1152,12 +1186,15 @@
         folderEdit: false,
         folderOpen: null
       };
++      // Initialize bookmark index revision
++      bumpBookmarksRevision();
 
       async function refreshFromExtension() {
         try {
           const data = await EXT.getToolbar();
           if (data && Array.isArray(data.items)) {
             state.items = data.items;
++            bumpBookmarksRevision();
             render();
           }
         } catch {}
@@ -1179,14 +1216,27 @@
       const setListForContext = (ctx, newList) => {
         if (!ctx || ctx === 'root') state.items = newList;
         else { const f = findById(ctx); if (f?.item?.type === 'folder') f.item.children = newList; }
-      };
++        bumpBookmarksRevision();
+       };
       const removeById = (id) => {
         const found = findById(id);
         if (!found) return null;
         const [removed] = found.list.splice(found.index, 1);
-        return removed || found.item;
++        bumpBookmarksRevision();
+         return removed || found.item;
+       };
+      // Cache favicon URLs and reduce size
+      const _faviconCache = new Map();
+      const faviconFor = (url) => {
+        try {
+          const u = new URL(url);
+          const key = u.origin;
+          if (_faviconCache.has(key)) return _faviconCache.get(key);
+          const src = `https://www.google.com/s2/favicons?sz=32&domain_url=${encodeURIComponent(key)}`;
+          _faviconCache.set(key, src);
+          return src;
+        } catch { return ''; }
       };
-      const faviconFor = (url) => { try { const u = new URL(url); return `https://www.google.com/s2/favicons?sz=64&domain_url=${encodeURIComponent(u.origin)}`; } catch { return ''; } };
 
       const deleteIcon = `
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1225,7 +1275,7 @@
           return `
             <li class="tile link" role="listitem" data-id="${it.id}" data-type="link" data-index="${idx}" draggable="${editable ? 'true':'false'}" title="${escapeHTML(it.title)} • ${escapeHTML(it.url)}">
               <div class="favicon" aria-hidden="true">
-                ${icon ? `<img src="${icon}" alt="">` : `
+                ${icon ? `<img src="${icon}" alt="" loading="lazy" decoding="async">` : `
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                     <circle cx="12" cy="12" r="4"></circle>
                   </svg>
@@ -1570,7 +1620,7 @@
       attachDnD(fvGrid);
 
       on(scAdd, 'click', () => openDialog('link'));
-  on(scAddFolder, 'click', () => openDialog('folder'));
+      on(scAddFolder, 'click', () => openDialog('folder'));
       on(scEdit, 'click', () => { state.edit = !state.edit; render(); });
 
       on(fvBack, 'click', closeFolder);
@@ -1592,7 +1642,10 @@
             if (EXT.isConnected()) {
               try { await EXT.updateNode({ id: found.item.id, title: title || 'Folder' }); await refreshFromExtension(); } catch {}
             } else {
-              found.item.title = title || 'Folder'; render();
+-              found.item.title = title || 'Folder'; render();
++              found.item.title = title || 'Folder';
++              bumpBookmarksRevision();
++              render();
             }
             closeDialog(); return;
           }
@@ -1628,6 +1681,7 @@
                   folder.children = folder.children || [];
                   folder.children.push(updated);
                 }
++                bumpBookmarksRevision();
               }
             }
             render();
@@ -1655,6 +1709,7 @@
               if (folder?.type === 'folder') { folder.children = folder.children || []; folder.children.push(item); }
               else state.items.push(item);
             }
++            bumpBookmarksRevision();
           }
         } else {
           const name = title || 'New folder';
@@ -1662,6 +1717,7 @@
             try { await EXT.createFolder({ parentId: EXT.getToolbarRootId(), title: name }); await refreshFromExtension(); } catch {}
           } else {
             state.items.push({ id: uid('fld'), type: 'folder', title: name, children: [] });
++            bumpBookmarksRevision();
           }
         }
 
@@ -1726,8 +1782,10 @@
           if (!imported.length) { alert('No shortcuts found in file.'); return; }
           if (confirm('Replace current shortcuts with imported data?\nPress OK to Replace, Cancel to Merge.')) {
             state.items = imported;
++            bumpBookmarksRevision();
           } else {
             state.items = state.items.concat(imported);
++            bumpBookmarksRevision();
           }
           render();
         } catch (err) {
@@ -1771,6 +1829,20 @@
         }
       });
 
++      // Ensure pending throttled save is flushed on unload
++      window.addEventListener('beforeunload', () => {
++        try {
++          if (store._saveTimer) {
++            if ('cancelIdleCallback' in window) { try { window.cancelIdleCallback(store._saveTimer); } catch {} }
++            else { clearTimeout(store._saveTimer); }
++            store._saveTimer = null;
++          }
++          if (!EXT.isConnected()) {
++            localStorage.setItem(store.key, JSON.stringify({ items: state.items }));
++          }
++        } catch {}
++      });
+
       if (document.readyState === 'complete') {
         focusSearch();
       }
@@ -1779,6 +1851,7 @@
         const data = await EXT.connect();
         if (data && Array.isArray(data.items)) {
           state.items = data.items;
++          bumpBookmarksRevision();
           scImport.setAttribute('disabled', 'true');
           render();
           try { const el = document.createElement('div'); el.style.cssText='position:fixed;right:8px;bottom:8px;font:12px system-ui;color:#8bbdff;opacity:.6;user-select:none;'; el.textContent='Synced with Bookmarks'; document.body.appendChild(el); setTimeout(()=>el.remove(), 3000); } catch {}
