@@ -1,0 +1,1444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Home</title>
+
+  <link rel="preload" href="./wallpaper-dark.jpg" as="image" />
+  <link rel="stylesheet" href="./styles/main.css" />
+</head>
+<body>
+  <!-- Fixed top-center dock -->
+  <div class="dock" aria-label="Search dock">
+    <div id="bar" class="bar" role="search" aria-label="Search">
+      <!-- Search form -->
+      <form id="form" class="form" action="https://www.google.com/search" method="GET" autocomplete="off" target="_self">
+        <input id="q" class="q" name="q" type="text" inputmode="search" spellcheck="false" aria-label="Search Google" placeholder="Search Google" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="suggest" aria-haspopup="listbox" />
+      </form>
+
+      <!-- Actions -->
+      <div class="actions" aria-label="Quick actions">
+        <button id="go" class="btn go" type="button" title="Search" aria-label="Search">
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 12h18M12 3l9 9-9 9"></path>
+          </svg>
+        </button>
+
+        <button id="voice" class="btn voice" type="button" title="Search by voice" aria-label="Search by voice">
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <rect x="9" y="3" width="6" height="10" rx="3" fill="currentColor"/>
+            <path d="M5 11a7 7 0 0 0 14 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M12 18v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
+
+        <button id="lensBtn" class="btn lens" type="button" title="Google Lens" aria-label="Google Lens">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3.75" y="3.75" width="16.5" height="16.5" rx="5"/>
+            <circle cx="12" cy="12" r="4.25"/>
+            <circle cx="15.8" cy="8.2" r="1.1" fill="currentColor" stroke="none" />
+          </svg>
+        </button>
+
+        <button id="ai" class="btn ai" type="button" title="AI Mode" aria-label="AI Mode">
+          <svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="6"></circle>
+            <path d="M16 16l5 5"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Suggestions -->
+    <ul id="suggest" class="suggest" role="listbox" aria-label="Search suggestions"></ul>
+  </div>
+
+  <!-- Shortcuts -->
+  <section id="shortcuts" class="shortcuts" aria-label="Shortcuts">
+    <div class="sc-bar">
+      <div class="sc-title">Shortcuts</div>
+      <div class="sc-actions">
+        <button id="scAdd" class="btn tiny" title="Add shortcut" aria-label="Add shortcut">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 5v14M5 12h14"/>
+          </svg>
+        </button>
+        <button id="scAddFolder" class="btn tiny" title="New folder" aria-label="New folder">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 7h6l2 2h10v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <path d="M12 11v6M9 14h6"/>
+          </svg>
+        </button>
+
+        <!-- Import/Export -->
+        <button id="scExport" class="btn tiny" title="Export shortcuts" aria-label="Export shortcuts">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 3v10"></path>
+            <path d="M7 8l5-5 5 5"></path>
+            <path d="M5 21h14a2 2 0 0 0 2-2v-5"></path>
+          </svg>
+        </button>
+        <button id="scImport" class="btn tiny" title="Import shortcuts" aria-label="Import shortcuts">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 21V11"></path>
+            <path d="M17 16l-5 5-5-5"></path>
+            <path d="M19 3H5a2 2 0 0 0-2 2v5"></path>
+          </svg>
+        </button>
+        <input id="scImportFile" type="file" accept="application/json,.json" style="display:none" />
+
+        <button id="scEdit" class="btn tiny" title="Reorder / delete" aria-label="Edit" aria-pressed="false">
+          <svg id="scEditIcon" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 21h4l11-11a2.5 2.5 0 0 0-4-4L4 17v4z"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <ul id="scGrid" class="tiles" role="list"></ul>
+
+    <!-- Folder overlay -->
+    <div id="folderView" class="folder-view" aria-hidden="true">
+      <div class="fv-bar">
+        <div class="fv-left">
+          <button id="fvBack" class="btn tiny" title="Close folder" aria-label="Close folder">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M15 18l-6-6 6-6"/>
+            </svg>
+          </button>
+          <div id="fvTitle" class="fv-title">Folder</div>
+        </div>
+        <div class="fv-actions">
+          <button id="fvToggleEdit" class="btn tiny" title="Edit shortcuts in this folder" aria-label="Edit folder contents" aria-pressed="false">
+            <svg id="fvToggleIcon" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 21h4l11-11a2.5 2.5 0 0 0-4-4L4 17v4z"></path>
+            </svg>
+          </button>
+          <button id="fvAdd" class="btn tiny" title="Add shortcut to folder" aria-label="Add shortcut">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 5v14M5 12h14"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <ul id="fvGrid" class="fv-grid" role="list"></ul>
+    </div>
+  </section>
+
+  <!-- Dialog + overlay -->
+  <div id="scOverlay" class="overlay" aria-hidden="true"></div>
+  <div id="scDialog" class="sc-dialog" role="dialog" aria-modal="true" aria-labelledby="scDialogTitle">
+    <h3 id="scDialogTitle">Add shortcut</h3>
+    <form id="scForm" autocomplete="off">
+      <div class="row">
+        <label for="scTitle">Name</label>
+        <input id="scTitle" name="title" type="text" placeholder="e.g., YouTube" />
+      </div>
+      <div class="row" id="rowUrl">
+        <label for="scUrl">URL</label>
+        <input id="scUrl" name="url" type="url" placeholder="https://example.com" inputmode="url" />
+      </div>
+      <div class="row" id="rowLocation">
+        <label id="scLocationLabel" for="scLocation">Add to</label>
+        <select id="scLocation" name="location"></select>
+      </div>
+      <div class="actions">
+        <button type="button" id="scCancel" class="btn ghost">Cancel</button>
+        <button type="submit" class="btn primary">Save</button>
+      </div>
+    </form>
+  </div>
+
+  <script src="./js/extension.js"></script>
+  <script src="./js/search.js"></script>
+  <script src="./js/shortcuts.js"></script>
+  <script src="./js/ui.js"></script>
+  <script src="./js/app.js"></script>
+
+  <script>
+        let toolbarRootId = null;
+
+        function call(method, params = {}, timeout = 5000) {
+          return new Promise((resolve, reject) => {
+            const id = `rpc_${Date.now()}_${++reqId}`;
+            const t = setTimeout(() => {
+              pending.delete(id);
+              reject(new Error('EXT timeout'));
+            }, timeout);
+            pending.set(id, { resolve, reject, timer: t });
+            try {
+              window.postMessage({ __ntb: true, id, method, params }, ORIGIN);
+            } catch (e) {
+              clearTimeout(t); pending.delete(id); reject(e);
+            }
+          });
+        }
+
+        window.addEventListener('message', (event) => {
+          if (event.source !== window) return;
+          const d = event.data;
+          if (d && d.__ntb_ready === true) {
+            EXT.connect(1).then((data) => { if (data && Array.isArray(data.items)) { state.items = data.items; scImport.setAttribute('disabled','true'); render(); } });
+            return;
+          }
+          if (d && d.__ntb === true && typeof d.ok === 'boolean') {
+            const entry = pending.get(d.id);
+            if (entry) {
+              clearTimeout(entry.timer);
+              pending.delete(d.id);
+              d.ok ? entry.resolve(d.result) : entry.reject(new Error(d.error || 'EXT error'));
+            }
+          } else if (d && d.__ntb_broadcast === true) {
+            EXT._notifyChange();
+          }
+        });
+
+        async function connect(attempts = 5) {
+          if (connected) return { id: toolbarRootId, items: state.items };
+          for (let i = 0; i < attempts; i++) {
+            try {
+              const data = await call('getToolbar', {}, 4000);
+              toolbarRootId = data?.id || null;
+              connected = !!toolbarRootId;
+              if (connected) { return data; }
+            } catch (err) {
+            }
+            if (i < attempts - 1) await new Promise(r => setTimeout(r, 600));
+          }
+          return null;
+        }
+
+        return {
+          connect,
+          isConnected: () => connected,
+          getToolbar: () => call('getToolbar'),
+          createLink: (args) => call('createLink', args),
+          createFolder: (args) => call('createFolder', args),
+          updateNode: (args) => call('updateNode', args),
+          moveNode: (args) => call('moveNode', args),
+          removeNode: (args) => call('removeNode', args),
+          getToolbarRootId: () => toolbarRootId,
+          _notifyChange: (() => {
+            let t = null;
+            return () => { clearTimeout(t); t = setTimeout(() => { if (typeof window.__extRefresh === 'function') window.__extRefresh(); }, 120); };
+          })(),
+        };
+      })();
+
+      const $ = (sel, root=document) => root.querySelector(sel);
+      const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+      const on = (el, evts, fn) => evts.split(' ').forEach(e => el.addEventListener(e, fn));
+      const escapeHTML = (s) => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+
+      const bar = $('#bar');
+      const form = $('#form');
+      const q = $('#q');
+      const go = $('#go');
+      const voice = $('#voice');
+      const lensBtn = $('#lensBtn');
+      const ai = $('#ai');
+      const sugg = $('#suggest');
+
+      const VOICE_ICONS = {
+        mic: `
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <rect x="9" y="3" width="6" height="10" rx="3" fill="currentColor"/>
+            <path d="M5 11a7 7 0 0 0 14 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M12 18v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        `,
+        stop: `
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/>
+          </svg>
+        `
+      };
+
+      const isValidUrl = (str) => {
+        try {
+          if (/^https?:\/\//i.test(str)) {
+            new URL(str);
+            return str;
+          }
+          if (/^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}([\/\w\.-]*)*\/?$/.test(str)) {
+            const url = 'https://' + str;
+            new URL(url);
+            return url;
+          }
+          return null;
+        } catch {
+          return null;
+        }
+      };
+
+      const getTopBookmarkSuggestion = () => {
+        const top = sugg.querySelector('li');
+        return (top && top.dataset.type === 'bookmark' && top.dataset.url) ? top.dataset.url : null;
+      };
+
+      const submitSearch = () => {
+        const topUrl = getTopBookmarkSuggestion();
+        if (topUrl) { window.location.replace(topUrl); return; }
+        const v = q.value.trim();
+        if (!v) { q.focus(); return; }
+        const url = isValidUrl(v);
+        if (url) { window.location.replace(url); return; }
+        form.submit();
+      };
+      on(go, 'click', submitSearch);
+      on(form, 'submit', (e) => { 
+        const v = q.value.trim();
+        if (!v) { e.preventDefault(); q.focus(); return; }
+        const topUrl = getTopBookmarkSuggestion();
+        if (topUrl) { e.preventDefault(); window.location.replace(topUrl); return; }
+        const url = isValidUrl(v);
+        if (url) { e.preventDefault(); window.location.replace(url); return; }
+      });
+
+      const SUGGESTIONS_CONFIG = { maxItems: 8, timeout: 3000, fallbackSuggestions: ["news","weather","maps","translate","time","calculator","currency converter","nearby restaurants","youtube","gmail"] };
+      let activeIndex = -1, lastQuery = '', suggestionRequestId = 0;
+
+      const SUGG_ICONS = {
+        bookmark: `
+          <svg class="s-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
+            <path d="M6 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18l-7-4-7 4V4z"/>
+          </svg>
+        `,
+        search: `
+          <svg class="s-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="6"></circle>
+            <path d="M16 16l5 5"></path>
+          </svg>
+        `
+      };
+
+      const flattenLinks = (items) => {
+        const out = [];
+        const walk = (arr) => {
+          for (const it of arr || []) {
+            if (!it) continue;
+            if (it.type === 'link' && it.url) out.push({ id: it.id, title: String(it.title||''), url: it.url });
+            else if (it.type === 'folder' && Array.isArray(it.children)) walk(it.children);
+          }
+        };
+        walk(state.items || []);
+        return out;
+      };
+
+      // Bookmark search index for better performance
+      let bookmarkIndex = [];
+      let lastBookmarkHash = '';
+
+      const invalidateBookmarkIndex = () => {
+        lastBookmarkHash = '';
+        bookmarkIndex = [];
+      };
+
+      const buildBookmarkIndex = () => {
+        const links = flattenLinks(state.items);
+        const currentHash = JSON.stringify(links.map(l => ({ title: l.title, url: l.url })));
+        
+        // Only rebuild if bookmarks have changed
+        if (currentHash === lastBookmarkHash) return bookmarkIndex;
+        
+        lastBookmarkHash = currentHash;
+        bookmarkIndex = links.map(l => {
+          let host = '';
+          try { 
+            const url = new URL(l.url);
+            host = url.hostname.replace(/^www\./,'').toLowerCase();
+          } catch {}
+          
+          const title = (l.title || '').toLowerCase();
+          const label = l.title || host || l.url;
+          
+          return {
+            title,
+            url: l.url,
+            label,
+            host,
+            searchTokens: [title, host, label.toLowerCase()].filter(Boolean)
+          };
+        }).filter(item => item.title || item.host);
+        
+        return bookmarkIndex;
+      };
+
+      /**
+       * Fast bookmark search using pre-built index
+       * Searches through titles and hostnames with scoring
+       * @param {string} text - Search query
+       * @param {number} limit - Maximum results to return
+       * @returns {Array} Scored bookmark results
+       */
+      const searchBookmarks = (text, limit = 5) => {
+        const q = (text||'').trim().toLowerCase();
+        if (!q) return [];
+        
+        // Ensure index is built and get it
+        const index = buildBookmarkIndex();
+        
+        const scored = [];
+        for (const item of index) {
+          let score = 0;
+          const { title, host, searchTokens } = item;
+          
+          // Exact matches get highest score
+          if (title === q || host === q) {
+            score += 10;
+          }
+          // Prefix matches get high score
+          else if (title.startsWith(q) || host.startsWith(q)) {
+            score += 8;
+          }
+          // Substring matches get medium score
+          else {
+            for (const token of searchTokens) {
+              if (token.includes(q)) {
+                score += 3;
+                break;
+              }
+            }
+          }
+          
+          if (score > 0) {
+            scored.push({ type: 'bookmark', label: item.label, url: item.url, score });
+          }
+        }
+        
+        // Sort by score (descending) then by label length (ascending)
+        scored.sort((a, b) => b.score - a.score || a.label.length - b.label.length);
+        return scored.slice(0, limit);
+      };
+
+      const cleanupSuggestionScript = () => { const s = document.querySelector('#suggestions-script'); if (s) s.remove(); };
+      const getFallbackSuggestions = (text) => SUGGESTIONS_CONFIG.fallbackSuggestions.filter(s => s.includes((text||'').toLowerCase())).slice(0, SUGGESTIONS_CONFIG.maxItems);
+      const fetchSuggestions = async (text, requestId) => new Promise((resolve) => {
+        try {
+          cleanupSuggestionScript();
+          const cb = `suggCallback_${Date.now()}_${Math.random().toString(36).slice(2,9)}`;
+          window[cb] = (data) => { 
+            try { 
+              delete window[cb]; 
+              cleanupSuggestionScript(); 
+              // Check if this is still the current request
+              if (requestId === suggestionRequestId) {
+                resolve(Array.isArray(data?.[1]) ? data[1] : []); 
+              }
+            } catch { resolve([]); } 
+          };
+          const script = document.createElement('script');
+          script.id = 'suggestions-script';
+          script.src = `https://suggestqueries.google.com/complete/search?client=firefox&hl=en&callback=${cb}&q=${encodeURIComponent(text)}`;
+          script.onerror = () => { 
+            delete window[cb]; 
+            cleanupSuggestionScript(); 
+            if (requestId === suggestionRequestId) {
+              resolve(getFallbackSuggestions(text)); 
+            }
+          };
+          document.head.appendChild(script);
+          setTimeout(() => { 
+            if (window[cb]) { 
+              delete window[cb]; 
+              cleanupSuggestionScript(); 
+              if (requestId === suggestionRequestId) {
+                resolve(getFallbackSuggestions(text)); 
+              }
+            } 
+          }, SUGGESTIONS_CONFIG.timeout);
+        } catch { 
+          if (requestId === suggestionRequestId) {
+            resolve(getFallbackSuggestions(text)); 
+          }
+        }
+      });
+
+      const renderSuggestions = (items) => {
+        if (!items || !items.length) { 
+          sugg.classList.remove('show'); 
+          sugg.innerHTML=''; 
+          updateAriaExpanded(false);
+          return; 
+        }
+        sugg.innerHTML = items.slice(0, SUGGESTIONS_CONFIG.maxItems).map((it,i)=>`
+          <li role="option"
+              data-index="${i}"
+              data-type="${it.type}"
+              ${it.url ? `data-url="${escapeHTML(it.url)}"` : ''}
+              aria-selected="false"
+              title="${escapeHTML(it.type==='bookmark' ? `${it.label} • ${it.url}` : it.label)}">
+            ${it.type === 'bookmark' ? SUGG_ICONS.bookmark : SUGG_ICONS.search}
+            <span>${escapeHTML(it.label)}</span>
+          </li>`).join('');
+        activeIndex = -1; 
+        sugg.classList.add('show');
+        updateAriaExpanded(true);
+      };
+
+      const debounce = (fn, d=120) => { 
+        let id; 
+        return (...args)=>{ 
+          clearTimeout(id); 
+          id = setTimeout(()=> fn(...args), d); 
+        }; 
+      };
+
+      /**
+       * Debounced function to fetch and merge web suggestions with bookmarks
+       * Only updates suggestions if web results are available
+       */
+      const updateSuggestions = debounce(async (text) => {
+        const v = (text||'').trim();
+        if (!v) { sugg.classList.remove('show'); sugg.innerHTML=''; lastQuery=''; updateAriaExpanded(false); return; }
+        if (v === lastQuery) return;
+        lastQuery = v;
+        
+        // Generate unique request ID to prevent stale responses
+        const currentRequestId = ++suggestionRequestId;
+        
+        try {
+          // Get bookmarks - they should already be shown by showInstantBookmarks
+          const bm = searchBookmarks(v);
+          
+          // Fetch web suggestions asynchronously
+          const web = await fetchSuggestions(v, currentRequestId);
+          
+          // Check if this response is still current
+          if (currentRequestId !== suggestionRequestId) return;
+          
+          // Merge web suggestions with bookmarks, avoiding duplicates
+          const seen = new Set(bm.map(x => x.label.toLowerCase()));
+          const webObjs = [];
+          for (const s of web) {
+            const lbl = String(s||'').trim();
+            if (!lbl) continue;
+            const key = lbl.toLowerCase();
+            if (seen.has(key)) continue;
+            seen.add(key);
+            webObjs.push({ type: 'query', label: lbl });
+            if (bm.length + webObjs.length >= SUGGESTIONS_CONFIG.maxItems) break;
+          }
+          
+          // Only update if we have web suggestions to add
+          if (webObjs.length > 0) {
+            renderSuggestions([...bm, ...webObjs]);
+          }
+        } catch {
+          // On error, just show bookmarks if we haven't already
+          if (currentRequestId === suggestionRequestId) {
+            const bm = searchBookmarks(v);
+            if (bm.length > 0) {
+              renderSuggestions(bm);
+            }
+          }
+        }
+      }, 120);
+
+      /**
+       * Shows bookmark suggestions immediately without debouncing
+       * Takes advantage of local data being instantly available
+       */
+      const showInstantBookmarks = (text) => {
+        const v = (text||'').trim();
+        if (!v) return;
+        
+        const bm = searchBookmarks(v);
+        if (bm.length > 0) {
+          renderSuggestions(bm);
+        }
+      };
+
+      const updateAriaExpanded = (expanded) => {
+        q.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        if (!expanded) {
+          q.removeAttribute('aria-activedescendant');
+        }
+      };
+
+      const setActive = (idx) => {
+        const items = Array.from(sugg.querySelectorAll('li'));
+        if (!items.length) { activeIndex = -1; q.removeAttribute('aria-activedescendant'); return; }
+        
+        items.forEach((li,i)=>{ 
+          const a=i===idx; 
+          li.classList.toggle('active',a); 
+          li.setAttribute('aria-selected', a?'true':'false');
+          if (a) li.id = li.id || `suggestion-${i}`;
+        });
+        
+        activeIndex = idx; 
+        if (idx>=0) {
+          items[idx].scrollIntoView({block:'nearest'});
+          q.setAttribute('aria-activedescendant', items[idx].id);
+        } else {
+          q.removeAttribute('aria-activedescendant');
+        }
+      };
+
+      function handleSuggestionKeyboard(e) {
+        const items = Array.from(sugg.querySelectorAll('li'));
+        const isOpen = sugg.classList.contains('show') && items.length>0;
+        switch (e.key) {
+          case 'ArrowDown':
+            if (!isOpen) { if (q.value.trim()) updateSuggestions(q.value); }
+            else setActive((activeIndex+1)%items.length);
+            e.preventDefault(); break;
+          case 'ArrowUp':
+            if (isOpen) { setActive(activeIndex<=0?items.length-1:activeIndex-1); e.preventDefault(); }
+            break;
+          case 'Enter':
+            if (isOpen) {
+              const idx = activeIndex >= 0 ? activeIndex : 0;
+              const li = items[idx];
+              if (li) {
+                const type = li.dataset.type;
+                const label = li.querySelector('span')?.textContent?.trim();
+                if (type === 'bookmark' && li.dataset.url) {
+                  e.preventDefault();
+                  sugg.classList.remove('show'); activeIndex=-1; updateAriaExpanded(false);
+                  window.location.replace(li.dataset.url);
+                  return;
+                } else if (label) {
+                  e.preventDefault();
+                  q.value = label;
+                  sugg.classList.remove('show'); activeIndex=-1; updateAriaExpanded(false);
+                  submitSearch();
+                  return;
+                }
+              }
+            }
+            break;
+          case 'Escape':
+            if (isOpen) { sugg.classList.remove('show'); activeIndex=-1; updateAriaExpanded(false); e.preventDefault(); }
+            break;
+        }
+      }
+
+      // Combined input handler for better performance and clarity
+      const handleSearchInput = (value) => {
+        if (!isComposing) {
+          showInstantBookmarks(value);
+          updateSuggestions(value);
+        }
+      };
+
+      let isComposing = false;
+
+      on(q, 'input', (e) => handleSearchInput(e.target.value));
+      on(q, 'compositionstart', () => { isComposing = true; });
+      on(q, 'compositionend', (e) => { 
+        isComposing = false; 
+        handleSearchInput(e.target.value);
+      });
+      on(q, 'focus', () => { 
+        const v = q.value.trim(); 
+        if (v) handleSearchInput(v);
+      });
+      on(q, 'keydown', handleSuggestionKeyboard);
+      on(sugg, 'mousedown', (e)=> e.preventDefault());
+      on(sugg, 'click', (e) => {
+        const li = e.target.closest('li'); if (!li) return;
+        const type = li.dataset.type;
+        if (type === 'bookmark' && li.dataset.url) {
+          sugg.classList.remove('show'); activeIndex=-1; updateAriaExpanded(false);
+          window.location.replace(li.dataset.url);
+          return;
+        }
+        const t = li.querySelector('span')?.textContent?.trim();
+        if (t) { q.value = t; sugg.classList.remove('show'); updateAriaExpanded(false); submitSearch(); }
+      });
+      on(sugg, 'blur', () => setTimeout(()=>{ sugg.classList.remove('show'); activeIndex=-1; updateAriaExpanded(false); },120));
+
+      let rec = null; let isListening = false;
+      on(voice, 'click', () => {
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) { alert("Voice search isn't supported in this browser."); return; }
+
+        if (isListening && rec) {
+          try { rec.stop(); } catch {}
+          return;
+        }
+
+        try {
+          rec = new SR();
+          rec.lang = navigator.language || 'en-US';
+          rec.interimResults = true;
+          rec.maxAlternatives = 1;
+
+          isListening = true;
+          voice.classList.add('recording');
+          voice.innerHTML = VOICE_ICONS.stop;
+          voice.title = 'Stop';
+          voice.setAttribute('aria-label', 'Stop');
+
+          rec.onresult = (ev) => {
+            try {
+              const text = Array.from(ev.results).map(r => (r[0]?.transcript || '')).join(' ').trim();
+              if (text) {
+                q.value = text;
+                q.focus();
+                const len = q.value.length; q.setSelectionRange(len, len);
+              }
+            } catch {}
+          };
+
+          rec.onerror = () => {};
+          rec.onend = () => {
+            isListening = false; rec = null;
+            voice.classList.remove('recording');
+            voice.innerHTML = VOICE_ICONS.mic;
+            voice.title = 'Search by voice';
+            voice.setAttribute('aria-label', 'Search by voice');
+          };
+
+          rec.start();
+        } catch {
+          isListening = false; rec = null;
+          voice.classList.remove('recording');
+          voice.innerHTML = VOICE_ICONS.mic;
+          voice.title = 'Search by voice';
+          voice.setAttribute('aria-label', 'Search by voice');
+        }
+      });
+
+      on(lensBtn, 'click', () => {
+        window.open('https://lens.google.com/', '_blank', 'noopener');
+      });
+
+      on(ai, 'click', () => {
+        const v = q.value.trim(); const base = 'https://www.google.com/search?udm=50';
+        window.location.replace(v ? `${base}&q=${encodeURIComponent(v)}` : base);
+      });
+
+      const sc = $('#shortcuts');
+      const scGrid = $('#scGrid');
+      const scAdd = $('#scAdd');
+      const scAddFolder = $('#scAddFolder');
+      const scEdit = $('#scEdit');
+      const scEditIcon = $('#scEditIcon');
+      const scExport = $('#scExport');
+      const scImport = $('#scImport');
+      const scImportFile = $('#scImportFile');
+
+      const folderView = $('#folderView');
+      const fvGrid = $('#fvGrid');
+      const fvTitle = $('#fvTitle');
+      const fvBack = $('#fvBack');
+      const fvAdd = $('#fvAdd');
+      const fvToggleEdit = $('#fvToggleEdit');
+      const fvToggleIcon = $('#fvToggleIcon');
+
+      const dialog = $('#scDialog');
+      const overlay = $('#scOverlay');
+      const scForm = $('#scForm');
+      const scDialogTitle = $('#scDialogTitle');
+      const inputTitle = $('#scTitle');
+      const inputUrl = $('#scUrl');
+      const rowUrl = $('#rowUrl');
+      const rowLoc = $('#rowLocation');
+      const selectLocation = $('#scLocation');
+      const scLocationLabel = $('#scLocationLabel');
+      const btnCancel = $('#scCancel');
+
+      const store = {
+        key: 'shortcuts.v1',
+        load() {
+          if (EXT.isConnected()) return null;
+          try {
+            const raw = localStorage.getItem(this.key);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed.items) ? parsed.items : null;
+          } catch { return null; }
+        },
+        save(items) {
+          if (EXT.isConnected()) return;
+          try { localStorage.setItem(this.key, JSON.stringify({ items })); } catch {}
+        },
+        export(items) {
+          const payload = { version: 1, exportedAt: new Date().toISOString(), items };
+          const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+          const a = document.createElement('a');
+          const pad = (n)=> String(n).padStart(2,'0');
+          const d = new Date();
+          const name = `shortcuts-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.json`;
+          a.href = URL.createObjectURL(blob);
+          a.download = name;
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
+        },
+        async import(file) {
+          const text = await file.text();
+          const json = JSON.parse(text);
+          return sanitizeImport(json);
+        }
+      };
+
+      const uid = (p='id') => `${p}_${Math.random().toString(36).slice(2,9)}${Date.now().toString(36)}`;
+
+      const defaultItems = () => ([
+        { id: uid('fld'), type: 'folder', title: 'Work', children: [
+          { id: uid('sc'), type: 'link', title: 'Gmail', url: 'https://mail.google.com' },
+          { id: uid('sc'), type: 'link', title: 'Drive', url: 'https://drive.google.com' }
+        ]},
+        { id: uid('sc'), type: 'link', title: 'YouTube', url: 'https://youtube.com' },
+        { id: uid('sc'), type: 'link', title: 'Maps', url: 'https://maps.google.com' },
+        { id: uid('sc'), type: 'link', title: 'Translate', url: 'https://translate.google.com' }
+      ]);
+
+      const state = {
+        items: store.load() || defaultItems(),
+        edit: false,
+        folderEdit: false,
+        folderOpen: null
+      };
+
+      async function refreshFromExtension() {
+        try {
+          const data = await EXT.getToolbar();
+          if (data && Array.isArray(data.items)) {
+            state.items = data.items;
+            render();
+          }
+        } catch {}
+      }
+      window.__extRefresh = refreshFromExtension;
+
+      const findById = (id, list=state.items, parent=null) => {
+        for (let i=0;i<list.length;i++) {
+          const item = list[i];
+          if (item.id === id) return { item, parent, index: i, list };
+          if (item.type === 'folder' && Array.isArray(item.children)) {
+            const found = findById(id, item.children, item);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+      const listForContext = (ctx) => (!ctx || ctx === 'root') ? state.items : (findById(ctx)?.item?.children || []);
+      const setListForContext = (ctx, newList) => {
+        if (!ctx || ctx === 'root') state.items = newList;
+        else { const f = findById(ctx); if (f?.item?.type === 'folder') f.item.children = newList; }
+      };
+      const removeById = (id) => {
+        const found = findById(id);
+        if (!found) return null;
+        const [removed] = found.list.splice(found.index, 1);
+        return removed || found.item;
+      };
+      const faviconFor = (url) => { try { const u = new URL(url); return `https://www.google.com/s2/favicons?sz=64&domain_url=${encodeURIComponent(u.origin)}`; } catch { return ''; } };
+
+      const deleteIcon = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 6h18"/>
+          <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>
+          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+          <path d="M10 11v6M14 11v6"/>
+        </svg>
+      `;
+      const folderIcon = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 2h9a2 2 0 0 1 2 2z"/>
+        </svg>
+      `;
+
+      const tileHTML = (it, idx, editable=false) => {
+        if (it.type === 'folder') {
+          const count = (it.children || []).length;
+          return `
+            <li class="tile folder" role="listitem" data-id="${it.id}" data-type="folder" data-index="${idx}" draggable="${editable ? 'true':'false'}" title="${escapeHTML(it.title)}">
+              <div class="favicon folder-ico" aria-hidden="true">${folderIcon}</div>
+              <div class="label">${escapeHTML(it.title)}</div>
+              <div class="count">${count}</div>
+              <button class="action edit" title="Edit folder" aria-label="Edit folder">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M4 21h4l11-11a2.5 2.5 0 0 0-4-4L4 17v4z"></path>
+                </svg>
+              </button>
+              <button class="action remove" title="Delete" aria-label="Delete">
+                ${deleteIcon}
+              </button>
+            </li>
+          `;
+        } else {
+          const icon = faviconFor(it.url);
+          return `
+            <li class="tile link" role="listitem" data-id="${it.id}" data-type="link" data-index="${idx}" draggable="${editable ? 'true':'false'}" title="${escapeHTML(it.title)} • ${escapeHTML(it.url)}">
+              <div class="favicon" aria-hidden="true">
+                ${icon ? `<img src="${icon}" alt="">` : `
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <circle cx="12" cy="12" r="4"></circle>
+                  </svg>
+                `}
+              </div>
+              <div class="label">${escapeHTML(it.title)}</div>
+              <button class="action edit" title="Edit shortcut" aria-label="Edit shortcut">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M4 21h4l11-11a2.5 2.5 0 0 0-4-4L4 17v4z"></path>
+                </svg>
+              </button>
+              <button class="action remove" title="Delete" aria-label="Delete">
+                ${deleteIcon}
+              </button>
+            </li>
+          `;
+        }
+      };
+
+      const renderGrid = (gridEl, ctx='root') => {
+        const list = listForContext(ctx);
+        const editable = ctx === 'root' ? state.edit : state.folderEdit;
+        gridEl.dataset.context = ctx;
+        gridEl.innerHTML = list.map((it, i) => tileHTML(it, i, editable)).join('');
+      };
+
+      const render = () => {
+        renderGrid(scGrid, 'root');
+        sc.classList.toggle('edit', state.edit);
+        scEdit.setAttribute('aria-pressed', String(state.edit));
+        scEditIcon.innerHTML = state.edit
+          ? '<path d="M5 12h14M5 6h14M5 18h14"></path>'
+          : '<path d="M4 21h4l11-11a2.5 2.5 0 0 0-4-4L4 17v4z"></path>';
+
+        if (state.folderOpen) {
+          const f = findById(state.folderOpen)?.item;
+          if (!f) { closeFolder(); }
+          else {
+            fvTitle.textContent = f.title;
+            renderGrid(fvGrid, state.folderOpen);
+            folderView.classList.toggle('edit', state.folderEdit);
+            fvToggleEdit.setAttribute('aria-pressed', String(state.folderEdit));
+            fvToggleIcon.innerHTML = state.folderEdit
+              ? '<path d="M5 12h14M5 6h14M5 18h14"></path>'
+              : '<path d="M4 21h4l11-11a2.5 2.5 0 0 0-4-4L4 17v4z"></path>';
+          }
+        }
+        store.save(state.items);
+      };
+
+      const openFolder = (folderId) => {
+        const f = findById(folderId)?.item;
+        if (!f || f.type !== 'folder') return;
+        state.folderOpen = folderId;
+        state.folderEdit = false;
+        fvTitle.textContent = f.title;
+        renderGrid(fvGrid, folderId);
+        folderView.classList.add('show');
+        folderView.setAttribute('aria-hidden', 'false');
+        render();
+      };
+      const closeFolder = () => {
+        state.folderOpen = null;
+        state.folderEdit = false;
+        folderView.classList.remove('show', 'edit');
+        folderView.setAttribute('aria-hidden', 'true');
+        render();
+      };
+
+      let dialogState = { mode: 'link', editId: null };
+      let dialogFocusableElements = [];
+      let previousFocusElement = null;
+
+      const getFocusableElements = (container) => {
+        return Array.from(container.querySelectorAll(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])'
+        ));
+      };
+
+      const trapFocus = (e) => {
+        if (e.key !== 'Tab') return;
+        
+        const firstElement = dialogFocusableElements[0];
+        const lastElement = dialogFocusableElements[dialogFocusableElements.length - 1];
+
+        if (e.shiftKey) {
+          if (document.activeElement === firstElement) {
+            e.preventDefault();
+            lastElement.focus();
+          }
+        } else {
+          if (document.activeElement === lastElement) {
+            e.preventDefault();
+            firstElement.focus();
+          }
+        }
+      };
+
+      const buildLocationOptions = () => {
+        const options = [['root', 'Top level']];
+        for (const it of state.items) { if (it.type === 'folder') options.push([it.id, `Folder: ${it.title}`]); }
+        selectLocation.innerHTML = options.map(([v,t]) => `<option value="${v}">${escapeHTML(t)}</option>`).join('');
+      };
+
+      const openDialog = (mode='link', preset = {}, editId = null) => {
+        // Store the element that opened the dialog
+        previousFocusElement = document.activeElement;
+        
+        dialogState = { mode, editId };
+        scDialogTitle.textContent =
+          editId ? (mode === 'folder' ? 'Rename folder' : 'Edit shortcut')
+                 : (mode === 'folder' ? 'New folder'   : 'Add shortcut');
+
+        rowUrl.style.display = mode === 'link' ? 'flex' : 'none';
+
+        const showLocation = (mode === 'link');
+        rowLoc.style.display = showLocation ? 'flex' : 'none';
+        if (showLocation) {
+          buildLocationOptions();
+          scLocationLabel.textContent = editId ? 'Move to' : 'Add to';
+          let currentLoc = 'root';
+          if (editId) {
+            const found = findById(editId);
+            if (found) currentLoc = found.parent?.id || 'root';
+          } else {
+            currentLoc = preset.location ?? (state.folderOpen || 'root');
+          }
+          selectLocation.value = currentLoc;
+        }
+
+        inputTitle.value = preset.title || '';
+        inputUrl.value = preset.url || '';
+        overlay.classList.add('show');
+        dialog.classList.add('show');
+        
+        // Setup focus trap
+        dialogFocusableElements = getFocusableElements(dialog);
+        document.addEventListener('keydown', trapFocus);
+        
+        // Focus first element
+        if (dialogFocusableElements.length > 0) {
+          dialogFocusableElements[0].focus();
+        } else {
+          inputTitle.focus();
+        }
+      };
+      const closeDialog = () => { 
+        dialog.classList.remove('show'); 
+        overlay.classList.remove('show'); 
+        
+        // Remove focus trap
+        document.removeEventListener('keydown', trapFocus);
+        dialogFocusableElements = [];
+        
+        // Return focus to the element that opened the dialog
+        if (previousFocusElement && typeof previousFocusElement.focus === 'function') {
+          previousFocusElement.focus();
+        }
+        previousFocusElement = null;
+      };
+
+      const openEdit = (id) => {
+        const found = findById(id);
+        if (!found) return;
+        const it = found.item;
+        if (it.type === 'folder') openDialog('folder', { title: it.title }, it.id);
+        else openDialog('link', { title: it.title, url: it.url }, it.id);
+      };
+
+      on(scGrid, 'click', async (e) => {
+        const tile = e.target.closest('.tile'); if (!tile) return;
+        const rm = e.target.closest('.remove');
+        const ed = e.target.closest('.edit');
+
+        if (rm && state.edit) {
+          const id = tile.dataset.id;
+          if (EXT.isConnected()) { try { await EXT.removeNode({ id }); await refreshFromExtension(); } catch {} }
+          else { removeById(id); render(); }
+          return;
+        }
+        if (ed && state.edit) { openEdit(tile.dataset.id); return; }
+        if (state.edit) return;
+
+        const type = tile.dataset.type;
+        const id = tile.dataset.id;
+        const found = findById(id)?.item; if (!found) return;
+
+        if (type === 'folder') openFolder(id);
+        else if (type === 'link') {
+          if (e.metaKey || e.ctrlKey) {
+            window.open(found.url, '_blank', 'noopener');
+          } else {
+            window.location.replace(found.url);
+          }
+        }
+      });
+
+      on(fvGrid, 'click', async (e) => {
+        const tile = e.target.closest('.tile'); if (!tile) return;
+        const rm = e.target.closest('.remove');
+        const ed = e.target.closest('.edit');
+
+        if (rm && state.folderEdit) {
+          const id = tile.dataset.id;
+          if (EXT.isConnected()) { try { await EXT.removeNode({ id }); await refreshFromExtension(); } catch {} }
+          else { removeById(id); render(); }
+          return;
+        }
+        if (ed && state.folderEdit) { openEdit(tile.dataset.id); return; }
+        if (state.folderEdit) return;
+
+        const type = tile.dataset.type;
+        const id = tile.dataset.id;
+        const found = findById(id)?.item; if (!found) return;
+
+        if (type === 'folder') openFolder(id); // not expected (one-level model), but safe
+        else if (type === 'link') {
+          if (e.metaKey || e.ctrlKey) {
+            window.open(found.url, '_blank', 'noopener');
+          } else {
+            window.location.replace(found.url);
+          }
+        }
+      });
+
+      let dragInfo = null;
+      const isGridEditable = (grid) => (grid === scGrid ? state.edit : state.folderEdit);
+
+      const clearDropHighlights = () => { $$('.tile.drop-into, .tile.drop-before, .tile.drop-after').forEach(el => el.classList.remove('drop-into','drop-before','drop-after')); };
+
+      const reorderWithin = (ctx, draggedId, beforeId=null) => {
+        const list = listForContext(ctx).slice();
+        const fromIdx = list.findIndex(x => x.id === draggedId);
+        if (fromIdx < 0) return false;
+        const [item] = list.splice(fromIdx, 1);
+        let toIdx = beforeId ? list.findIndex(x => x.id === beforeId) : list.length;
+        if (toIdx < 0) toIdx = list.length;
+        list.splice(toIdx, 0, item);
+        setListForContext(ctx, list);
+        return true;
+      };
+
+      const attachDnD = (grid) => {
+        on(grid, 'dragstart', (e) => {
+          const tile = e.target.closest('.tile'); if (!tile) return;
+          const currentGrid = tile.closest('ul');
+          if (!isGridEditable(currentGrid)) return;
+          dragInfo = { id: tile.dataset.id, fromCtx: currentGrid?.dataset?.context || 'root' };
+          tile.classList.add('dragging');
+          try { e.dataTransfer.setData('text/plain', dragInfo.id); } catch {}
+        });
+        on(grid, 'dragend', (e) => {
+          const tile = e.target.closest('.tile'); if (tile) tile.classList.remove('dragging');
+          dragInfo = null; clearDropHighlights();
+        });
+        on(grid, 'dragover', (e) => {
+          const currentGrid = e.currentTarget;
+          if (!isGridEditable(currentGrid) || !dragInfo) return;
+          e.preventDefault();
+          const overTile = e.target.closest('.tile');
+          clearDropHighlights();
+          if (overTile) {
+            const type = overTile.dataset.type;
+            if (type === 'folder' && findById(dragInfo.id)?.item.type === 'link') overTile.classList.add('drop-into');
+          }
+        });
+        on(grid, 'drop', async (e) => {
+          const currentGrid = e.currentTarget;
+          if (!isGridEditable(currentGrid) || !dragInfo) return;
+          e.preventDefault();
+
+          const toCtx = currentGrid.dataset.context || 'root';
+          const overTile = e.target.closest('.tile');
+          const dragged = findById(dragInfo.id)?.item;
+          if (!dragged) return;
+
+          if (overTile) {
+            const overId = overTile.dataset.id;
+            const overType = overTile.dataset.type;
+
+            if (overType === 'folder' && dragged.type === 'link') {
+              if (EXT.isConnected()) {
+                const parentId = overId;
+                try { await EXT.moveNode({ id: dragged.id, parentId }); await refreshFromExtension(); } catch {}
+              } else {
+                removeById(dragInfo.id);
+                const folder = findById(overId)?.item;
+                folder.children = folder.children || [];
+                folder.children.push(dragged);
+                render();
+              }
+              return;
+            }
+
+            if (dragInfo.fromCtx !== toCtx) {
+              if (EXT.isConnected()) {
+                const parentId = (toCtx === 'root') ? EXT.getToolbarRootId() : toCtx;
+                const list = listForContext(toCtx);
+                const toIdx = Math.max(0, list.findIndex(x => x.id === overId));
+                try { await EXT.moveNode({ id: dragged.id, parentId, index: toIdx }); await refreshFromExtension(); } catch {}
+              } else {
+                const extracted = removeById(dragInfo.id); if (!extracted) return;
+                const list = listForContext(toCtx).slice();
+                const toIdx = list.findIndex(x => x.id === overId);
+                list.splice(toIdx < 0 ? list.length : toIdx, 0, extracted);
+                setListForContext(toCtx, list); render();
+              }
+              return;
+            } else {
+              if (EXT.isConnected()) {
+                const parentId = (toCtx === 'root') ? EXT.getToolbarRootId() : toCtx;
+                const list = listForContext(toCtx);
+                const toIdx = Math.max(0, list.findIndex(x => x.id === overId));
+                try { await EXT.moveNode({ id: dragged.id, parentId, index: toIdx }); await refreshFromExtension(); } catch {}
+              } else {
+                reorderWithin(toCtx, dragInfo.id, overId); render();
+              }
+              return;
+            }
+          } else {
+            if (dragInfo.fromCtx !== toCtx) {
+              if (EXT.isConnected()) {
+                const parentId = (toCtx === 'root') ? EXT.getToolbarRootId() : toCtx;
+                try { await EXT.moveNode({ id: dragged.id, parentId }); await refreshFromExtension(); } catch {}
+              } else {
+                const extracted = removeById(dragInfo.id); if (!extracted) return;
+                const list = listForContext(toCtx).slice(); list.push(extracted);
+                setListForContext(toCtx, list); render();
+              }
+            } else {
+              if (EXT.isConnected()) {
+                const parentId = (toCtx === 'root') ? EXT.getToolbarRootId() : toCtx;
+                try { await EXT.moveNode({ id: dragged.id, parentId }); await refreshFromExtension(); } catch {}
+              } else {
+                reorderWithin(toCtx, dragInfo.id, null); render();
+              }
+            }
+          }
+        });
+      };
+      attachDnD(scGrid);
+      attachDnD(fvGrid);
+
+      on(scAdd, 'click', () => openDialog('link'));
+  on(scAddFolder, 'click', () => openDialog('folder'));
+      on(scEdit, 'click', () => { state.edit = !state.edit; render(); });
+
+      on(fvBack, 'click', closeFolder);
+      on(fvAdd, 'click', () => openDialog('link', { location: state.folderOpen }));
+      on(fvToggleEdit, 'click', () => { state.folderEdit = !state.folderEdit; render(); });
+
+      on(overlay, 'click', closeDialog);
+      on(btnCancel, 'click', closeDialog);
+      on(scForm, 'submit', async (e) => {
+        e.preventDefault();
+        const title = inputTitle.value.trim();
+        const mode = dialogState.mode;
+
+        if (dialogState.editId) {
+          const found = findById(dialogState.editId);
+          if (!found) { closeDialog(); return; }
+
+          if (mode === 'folder') {
+            if (EXT.isConnected()) {
+              try { await EXT.updateNode({ id: found.item.id, title: title || 'Folder' }); await refreshFromExtension(); } catch {}
+            } else {
+              found.item.title = title || 'Folder'; render();
+            }
+            closeDialog(); return;
+          }
+
+          let url = inputUrl.value.trim();
+          try {
+            if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+            new URL(url);
+          } catch { alert('Please enter a valid URL.'); return; }
+          const name = title || (new URL(url).hostname.replace(/^www\./,''));
+          const currentLoc = found.parent?.id || 'root';
+          const newLoc = (rowLoc.style.display !== 'none') ? (selectLocation.value || currentLoc) : currentLoc;
+
+          if (EXT.isConnected()) {
+            try {
+              await EXT.updateNode({ id: found.item.id, title: name, url });
+              if (newLoc !== currentLoc) {
+                const parentId = (newLoc === 'root') ? EXT.getToolbarRootId() : newLoc;
+                await EXT.moveNode({ id: found.item.id, parentId });
+              }
+              await refreshFromExtension();
+            } catch {}
+          } else {
+            if (newLoc === currentLoc) {
+              found.item.title = name; found.item.url = url;
+            } else {
+              const updated = removeById(dialogState.editId);
+              if (updated) {
+                updated.title = name; updated.url = url;
+                if (newLoc === 'root') state.items.push(updated);
+                else {
+                  const folder = findById(newLoc)?.item;
+                  folder.children = folder.children || [];
+                  folder.children.push(updated);
+                }
+              }
+            }
+            render();
+          }
+          closeDialog(); return;
+        }
+
+        if (mode === 'link') {
+          let url = inputUrl.value.trim();
+          if (!url) return;
+          try {
+            if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+            new URL(url);
+          } catch { alert('Please enter a valid URL.'); return; }
+          const name = title || (new URL(url).hostname.replace(/^www\./,''));
+          const loc = (selectLocation.value || 'root');
+          if (EXT.isConnected()) {
+            const parentId = (loc === 'root') ? EXT.getToolbarRootId() : loc;
+            try { await EXT.createLink({ parentId, title: name, url }); await refreshFromExtension(); } catch {}
+          } else {
+            const item = { id: uid('sc'), type: 'link', title: name, url };
+            if (loc === 'root') state.items.push(item);
+            else {
+              const folder = findById(loc)?.item;
+              if (folder?.type === 'folder') { folder.children = folder.children || []; folder.children.push(item); }
+              else state.items.push(item);
+            }
+          }
+        } else {
+          const name = title || 'New folder';
+          if (EXT.isConnected()) {
+            try { await EXT.createFolder({ parentId: EXT.getToolbarRootId(), title: name }); await refreshFromExtension(); } catch {}
+          } else {
+            state.items.push({ id: uid('fld'), type: 'folder', title: name, children: [] });
+          }
+        }
+
+        if (!EXT.isConnected()) render();
+        closeDialog();
+        inputTitle.value = ''; inputUrl.value = '';
+      });
+
+      const sanitizeImport = (input) => {
+        const out = [];
+        const seen = new Set();
+        const newId = (isFolder) => {
+          let id; do { id = uid(isFolder ? 'fld' : 'sc'); } while (seen.has(id));
+          seen.add(id); return id;
+        };
+        const validUrl = (u) => {
+          try { if (!/^https?:\/\//i.test(u)) u = 'https://' + u; const url = new URL(u); return url.href; }
+          catch { return null; }
+        };
+        const addLink = (title, url) => {
+          const href = validUrl(url); if (!href) return null;
+          return { id: newId(false), type: 'link', title: String(title||new URL(href).hostname.replace(/^www\./,'')), url: href };
+        };
+        const each = Array.isArray(input) ? input : (Array.isArray(input?.items) ? input.items : []);
+        for (const it of each) {
+          if (!it || typeof it !== 'object') continue;
+          if (it.type === 'folder') {
+            const folder = { id: newId(true), type: 'folder', title: String(it.title || 'Folder'), children: [] };
+            const kids = Array.isArray(it.children) ? it.children : [];
+            for (const ch of kids) {
+              if (ch?.type === 'link') {
+                const link = addLink(ch.title, ch.url);
+                if (link) folder.children.push(link);
+              } else if (ch?.type === 'folder' && Array.isArray(ch.children)) {
+                for (const sub of ch.children) {
+                  if (sub?.type === 'link') {
+                    const link = addLink(sub.title, sub.url);
+                    if (link) folder.children.push(link);
+                  }
+                }
+              }
+            }
+            out.push(folder);
+          } else if (it.type === 'link') {
+            const link = addLink(it.title, it.url);
+            if (link) out.push(link);
+          }
+        }
+        return out;
+      };
+
+      on(scExport, 'click', () => store.export(state.items));
+      on(scImport, 'click', () => {
+        if (EXT.isConnected()) { alert('Import is disabled while syncing with bookmarks.'); return; }
+        scImportFile.click();
+      });
+      on(scImportFile, 'change', async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        try {
+          const imported = await store.import(file);
+          if (!imported.length) { alert('No shortcuts found in file.'); return; }
+          if (confirm('Replace current shortcuts with imported data?\nPress OK to Replace, Cancel to Merge.')) {
+            state.items = imported;
+          } else {
+            state.items = state.items.concat(imported);
+          }
+          render();
+        } catch (err) {
+          console.warn('Import failed:', err);
+          alert('Could not import file. Please ensure it is a valid shortcuts JSON.');
+        } finally {
+          scImportFile.value = '';
+        }
+      });
+
+      // Close suggestions when clicking outside
+      on(document, 'click', (e) => {
+        const isInsideSearch = e.target.closest('.dock');
+        if (!isInsideSearch && sugg.classList.contains('show')) {
+          sugg.classList.remove('show');
+          activeIndex = -1;
+          updateAriaExpanded(false);
+        }
+      });
+
+      on(document, 'keydown', (e) => {
+        if (e.key === 'Escape') {
+          if (dialog.classList.contains('show')) { closeDialog(); return; }
+          if (folderView.classList.contains('show')) { closeFolder(); return; }
+        }
+      });
+
+      const focusSearch = () => {
+        setTimeout(() => {
+          if (q && typeof q.focus === 'function') {
+            q.focus();
+          }
+        }, 100);
+      };
+
+      on(window, 'load', focusSearch);
+      
+      on(document, 'visibilitychange', () => {
+        if (!document.hidden) {
+          focusSearch();
+        }
+      });
+
+      if (document.readyState === 'complete') {
+        focusSearch();
+      }
+
+      (async () => {
+        const data = await EXT.connect();
+        if (data && Array.isArray(data.items)) {
+          state.items = data.items;
+          scImport.setAttribute('disabled', 'true');
+          render();
+          try { const el = document.createElement('div'); el.style.cssText='position:fixed;right:8px;bottom:8px;font:12px system-ui;color:#8bbdff;opacity:.6;user-select:none;'; el.textContent='Synced with Bookmarks'; document.body.appendChild(el); setTimeout(()=>el.remove(), 3000); } catch {}
+        } else {
+          render();
+        }
+        
+        focusSearch();
+      })();
+    })();
+  </script>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>
