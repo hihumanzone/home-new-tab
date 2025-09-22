@@ -76,7 +76,6 @@
       border-radius: var(--radius-xl);
       padding: 8px 10px;
       box-shadow: var(--shadow);
-      backdrop-filter: saturate(120%) blur(6px);
       position: relative;
       transition: box-shadow .15s ease, transform .15s ease;
       user-select: none;
@@ -151,7 +150,6 @@
       background: var(--suggest-bg);
       border-radius: 16px;
       box-shadow: 0 10px 40px rgba(0,0,0,.6);
-      backdrop-filter: blur(6px) saturate(120%);
       max-height: calc(100vh - var(--dock-top) - var(--bar-h) - 20px);
       overflow-x: hidden;
       display: none;
@@ -183,10 +181,9 @@
       left: 50%;
       transform: translateX(-50%);
       width: min(900px, calc(100vw - 2rem));
-      background: rgba(16,14,15,.82);
+      background: rgba(16,14,15,.88);
       border-radius: 20px;
       box-shadow: var(--shadow);
-      backdrop-filter: blur(10px) saturate(120%);
       padding: 10px 12px 12px;
       z-index: 5;
       user-select: none;
@@ -317,7 +314,6 @@
     .overlay{
       position: fixed; inset: 0;
       background: rgba(0,0,0,.4);
-      backdrop-filter: blur(1px);
       display:none; z-index: 20;
     }
     .overlay.show{ display:block; }
@@ -1537,31 +1533,6 @@
         focusSearch();
       }
 
-      (async () => {
-        const data = await EXT.connect();
-        if (data && Array.isArray(data.items)) {
-          state.items = data.items;
-          scImport.setAttribute('disabled', 'true');
-          render();
-          try { const el = document.createElement('div'); el.style.cssText='position:fixed;right:8px;bottom:8px;font:12px system-ui;color:#8bbdff;opacity:.6;user-select:none;'; el.textContent='Synced with Bookmarks'; document.body.appendChild(el); setTimeout(()=>el.remove(), 3000); } catch {}
-        } else {
-          render();
-        }
-        
-        focusSearch();
-      })();
-    })();
-  </script>
-
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch(() => {});
-      });
-    }
-  </script>
-</body>
-</html>
       (async () => {
         const data = await EXT.connect();
         if (data && Array.isArray(data.items)) {

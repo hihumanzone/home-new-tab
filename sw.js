@@ -1,5 +1,6 @@
-const VERSION = 'v1.0.1';
+const VERSION = 'v1.0.2';
 const CACHE_NAME = `home-new-tab-${VERSION}`;
+const IMG_CACHE = `home-new-tab-img-${VERSION}`;
 const PRECACHE = ['./', './index.html', './wallpaper-dark.jpg'];
 
 self.addEventListener('install', (event) => {
@@ -13,7 +14,11 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.filter(k => k.startsWith('home-new-tab-') && k !== CACHE_NAME).map(k => caches.delete(k)));
+    await Promise.all(
+      keys
+        .filter(k => (k !== CACHE_NAME && k !== IMG_CACHE) && (k.startsWith('home-new-tab-') || k.startsWith('home-new-tab-img-')))
+        .map(k => caches.delete(k))
+    );
     await self.clients.claim();
   })());
 });
@@ -21,6 +26,27 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
+
+  if (req.destination === 'image') {
+    event.respondWith((async () => {
+      const imgCache = await caches.open(IMG_CACHE);
+      const cached = await imgCache.match(req);
+      if (cached) return cached;
+      try {
+        const res = await fetch(req);
+        if (res && (res.ok || res.type === 'opaque')) {
+          imgCache.put(req, res.clone());
+        }
+        return res;
+      } catch {
+        const appCache = await caches.open(CACHE_NAME);
+        const fallbackImg = await appCache.match('./wallpaper-dark.jpg');
+        if (fallbackImg) return fallbackImg;
+        return new Response('Image unavailable', { status: 504, statusText: 'Gateway Timeout' });
+      }
+    })());
+    return;
+  }
 
   if (req.mode === 'navigate') {
     event.respondWith((async () => {
@@ -50,6 +76,9 @@ self.addEventListener('fetch', (event) => {
         if (fallbackImg && req.destination === 'image') return fallbackImg;
         return new Response('Offline', { status: 503, statusText: 'Offline' });
       }
+    })());
+  }
+});
     })());
   }
 });
