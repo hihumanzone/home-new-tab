@@ -172,7 +172,21 @@
     .suggest li.active { background: var(--suggest-hover); }
     .s-icon { width: 18px; height: 18px; opacity: .7; }
 
-    @media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
+    /* Low-power device optimizations */
+    @media (prefers-reduced-motion: reduce) { 
+      .btn { transition: none; }
+      .bar { transition: none; }
+      .voice.recording { animation: none; }
+      .tile { transition: none; }
+      .tile .action { transition: none; }
+    }
+
+    /* Add reduced-data hint for low-power devices */
+    .low-power .voice.recording {
+      animation: none;
+      background: #2f2c32;
+      box-shadow: 0 0 0 2px rgba(106,163,255,.35);
+    }
 
     /* Shortcuts */
     .shortcuts {
@@ -370,7 +384,10 @@
     <div id="bar" class="bar" role="search" aria-label="Search">
       <!-- Search form -->
       <form id="form" class="form" action="https://www.google.com/search" method="GET" autocomplete="off" target="_self">
-        <input id="q" class="q" name="q" type="text" inputmode="search" spellcheck="false" aria-label="Search Google" placeholder="Search Google" />
+        <input id="q" class="q" name="q" type="text" inputmode="search" spellcheck="false" 
+               aria-label="Search Google" placeholder="Search Google"
+               role="combobox" aria-expanded="false" aria-haspopup="listbox" 
+               aria-owns="sugg" aria-autocomplete="list" />
       </form>
 
       <!-- Actions -->
@@ -588,6 +605,25 @@
       const on = (el, evts, fn) => evts.split(' ').forEach(e => el.addEventListener(e, fn));
       const escapeHTML = (s) => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
 
+      // Low-power device detection
+      const isLowPower = (() => {
+        try {
+          return (
+            navigator.hardwareConcurrency <= 2 ||
+            navigator.deviceMemory <= 2 ||
+            navigator.connection?.saveData === true ||
+            navigator.connection?.effectiveType === 'slow-2g' ||
+            navigator.connection?.effectiveType === '2g'
+          );
+        } catch {
+          return false;
+        }
+      })();
+
+      if (isLowPower) {
+        document.documentElement.classList.add('low-power');
+      }
+
       const bar = $('#bar');
       const form = $('#form');
       const q = $('#q');
@@ -653,57 +689,71 @@
         if (url) { e.preventDefault(); window.location.replace(url); return; }
       });
 
-      const SUGGESTIONS_CONFIG = { maxItems: 8, timeout: 3000, fallbackSuggestions: ["news","weather","maps","translate","time","calculator","currency converter","nearby restaurants","youtube","gmail"] };
-      let activeIndex = -1, lastQuery = '';
+      const SUGGESTIONS_CONFIG = { maxItems: 8, timeout: isLowPower ? 1500 : 3000, fallbackSuggestions: ["news","weather","maps","translate","time","calculator","currency converter","nearby restaurants","youtube","gmail"] };
+      let activeIndex = -1, lastQuery = '', isComposing = false;
+      let currentSuggestionRequest = 0;
 
-      const SUGG_ICONS = {
-        bookmark: `
-          <svg class="s-icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
-            <path d="M6 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18l-7-4-7 4V4z"/>
-          </svg>
-        `,
-        search: `
-          <svg class="s-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="6"></circle>
-            <path d="M16 16l5 5"></path>
-          </svg>
-        `
-      };
+      // Bookmark search index for faster lookups
+      let bookmarkIndex = null;
+      let indexVersion = 0;
 
-      const flattenLinks = (items) => {
-        const out = [];
+      const buildBookmarkIndex = () => {
+        if (!state.items) return;
+        const currentVersion = JSON.stringify(state.items);
+        if (bookmarkIndex && indexVersion === currentVersion.length) return; // Simple change detection
+        
+        indexVersion = currentVersion.length;
+        bookmarkIndex = [];
+        
         const walk = (arr) => {
           for (const it of arr || []) {
             if (!it) continue;
-            if (it.type === 'link' && it.url) out.push({ id: it.id, title: String(it.title||''), url: it.url });
-            else if (it.type === 'folder' && Array.isArray(it.children)) walk(it.children);
+            if (it.type === 'link' && it.url) {
+              let host = '';
+              try { host = new URL(it.url).hostname.replace(/^www\./,'').toLowerCase(); } catch {}
+              
+              const title = (it.title || '').toLowerCase();
+              const searchTerms = [title, host].filter(Boolean);
+              
+              bookmarkIndex.push({
+                id: it.id,
+                title: it.title || host || it.url,
+                url: it.url,
+                searchTerms,
+                titleLower: title,
+                hostLower: host
+              });
+            } else if (it.type === 'folder' && Array.isArray(it.children)) {
+              walk(it.children);
+            }
           }
         };
-        walk(state.items || []);
-        return out;
+        walk(state.items);
       };
 
       const searchBookmarks = (text, limit = 5) => {
         const q = (text||'').trim().toLowerCase();
-        if (!q) return [];
-        const links = flattenLinks(state.items);
+        if (!q || !bookmarkIndex) return [];
+        
         const scored = [];
-        for (const l of links) {
+        for (const item of bookmarkIndex) {
           let score = 0;
-          const t = (l.title||'').toLowerCase();
-          let host = '';
-          try { host = new URL(l.url).hostname.replace(/^www\./,'').toLowerCase(); } catch {}
-          if (!t && !host) continue;
-          if (t === q) score += 6;
-          else if (t.startsWith(q)) score += 5;
-          else if (t.includes(q)) score += 3;
-          if (host) {
-            if (host === q) score += 4;
-            else if (host.startsWith(q)) score += 3;
-            else if (host.includes(q)) score += 1;
+          
+          // Title matching
+          if (item.titleLower === q) score += 6;
+          else if (item.titleLower.startsWith(q)) score += 5;
+          else if (item.titleLower.includes(q)) score += 3;
+          
+          // Host matching
+          if (item.hostLower === q) score += 4;
+          else if (item.hostLower.startsWith(q)) score += 3;
+          else if (item.hostLower.includes(q)) score += 1;
+          
+          if (score > 0) {
+            scored.push({ type: 'bookmark', label: item.title, url: item.url, score });
           }
-          if (score > 0) scored.push({ type: 'bookmark', label: l.title || host || l.url, url: l.url, score });
         }
+        
         scored.sort((a, b) => b.score - a.score || a.label.length - b.label.length);
         return scored.slice(0, limit);
       };
@@ -725,7 +775,11 @@
       });
 
       const renderSuggestions = (items) => {
-        if (!items || !items.length) { sugg.classList.remove('show'); sugg.innerHTML=''; return; }
+        if (!items || !items.length) { 
+          closeSuggestions(); 
+          return; 
+        }
+        
         sugg.innerHTML = items.slice(0, SUGGESTIONS_CONFIG.maxItems).map((it,i)=>`
           <li role="option"
               data-index="${i}"
@@ -736,54 +790,120 @@
             ${it.type === 'bookmark' ? SUGG_ICONS.bookmark : SUGG_ICONS.search}
             <span>${escapeHTML(it.label)}</span>
           </li>`).join('');
-        activeIndex = -1; sugg.classList.add('show');
+        
+        openSuggestions();
+        activeIndex = -1;
+      };
+
+      const openSuggestions = () => {
+        if (!sugg.classList.contains('show')) {
+          sugg.classList.add('show');
+          q.setAttribute('aria-expanded', 'true');
+        }
+      };
+
+      const closeSuggestions = () => {
+        if (sugg.classList.contains('show')) {
+          sugg.classList.remove('show');
+          sugg.innerHTML = '';
+          q.setAttribute('aria-expanded', 'false');
+          activeIndex = -1;
+          lastQuery = '';
+        }
       };
 
       const debounce = (fn, d=120) => { let id; return (...args)=>{ clearTimeout(id); id=setTimeout(()=>fn(...args), d); }; };
 
       const updateSuggestions = debounce(async (text) => {
         const v = (text||'').trim();
-        if (!v) { sugg.classList.remove('show'); sugg.innerHTML=''; lastQuery=''; return; }
-        if (v === lastQuery) return;
-        lastQuery = v;
-        try {
-          const bm = searchBookmarks(v);
-          const web = await fetchSuggestions(v);
-          const seen = new Set(bm.map(x => x.label.toLowerCase()));
-          const webObjs = [];
-          for (const s of web) {
-            const lbl = String(s||'').trim();
-            if (!lbl) continue;
-            const key = lbl.toLowerCase();
-            if (seen.has(key)) continue;
-            seen.add(key);
-            webObjs.push({ type: 'query', label: lbl });
-            if (bm.length + webObjs.length >= SUGGESTIONS_CONFIG.maxItems) break;
-          }
-          renderSuggestions([...bm, ...webObjs]);
-        } catch {
-          renderSuggestions(searchBookmarks(v));
+        if (!v || isComposing) { 
+          closeSuggestions(); 
+          lastQuery = ''; 
+          return; 
         }
-      }, 120);
+        if (v === lastQuery) return;
+        
+        lastQuery = v;
+        const requestId = ++currentSuggestionRequest;
+        
+        try {
+          buildBookmarkIndex(); // Ensure index is current
+          const bm = searchBookmarks(v);
+          
+          // Check if this request is still current
+          if (requestId !== currentSuggestionRequest) return;
+          
+          let webObjs = [];
+          if (!isLowPower) {
+            const web = await fetchSuggestions(v);
+            
+            // Check again after async operation
+            if (requestId !== currentSuggestionRequest) return;
+            
+            const seen = new Set(bm.map(x => x.label.toLowerCase()));
+            for (const s of web) {
+              const lbl = String(s||'').trim();
+              if (!lbl) continue;
+              const key = lbl.toLowerCase();
+              if (seen.has(key)) continue;
+              seen.add(key);
+              webObjs.push({ type: 'query', label: lbl });
+              if (bm.length + webObjs.length >= SUGGESTIONS_CONFIG.maxItems) break;
+            }
+          }
+          
+          // Final check before rendering
+          if (requestId === currentSuggestionRequest) {
+            renderSuggestions([...bm, ...webObjs]);
+          }
+        } catch {
+          // Only render bookmarks if this is still the current request
+          if (requestId === currentSuggestionRequest) {
+            renderSuggestions(searchBookmarks(v));
+          }
+        }
+      }, isLowPower ? 200 : 120);
 
       const setActive = (idx) => {
         const items = Array.from(sugg.querySelectorAll('li'));
         if (!items.length) { activeIndex = -1; return; }
-        items.forEach((li,i)=>{ const a=i===idx; li.classList.toggle('active',a); li.setAttribute('aria-selected', a?'true':'false'); });
-        activeIndex = idx; if (idx>=0) items[idx].scrollIntoView({block:'nearest'});
+        
+        items.forEach((li,i)=>{ 
+          const active = i === idx; 
+          li.classList.toggle('active', active); 
+          li.setAttribute('aria-selected', active ? 'true' : 'false'); 
+        });
+        
+        activeIndex = idx; 
+        if (idx >= 0) {
+          items[idx].scrollIntoView({block:'nearest'});
+          q.setAttribute('aria-activedescendant', items[idx].id || `suggestion-${idx}`);
+        } else {
+          q.removeAttribute('aria-activedescendant');
+        }
       };
 
       function handleSuggestionKeyboard(e) {
         const items = Array.from(sugg.querySelectorAll('li'));
-        const isOpen = sugg.classList.contains('show') && items.length>0;
+        const isOpen = sugg.classList.contains('show') && items.length > 0;
+        
         switch (e.key) {
           case 'ArrowDown':
-            if (!isOpen) { if (q.value.trim()) updateSuggestions(q.value); }
-            else setActive((activeIndex+1)%items.length);
-            e.preventDefault(); break;
-          case 'ArrowUp':
-            if (isOpen) { setActive(activeIndex<=0?items.length-1:activeIndex-1); e.preventDefault(); }
+            if (!isOpen) { 
+              if (q.value.trim()) updateSuggestions(q.value); 
+            } else {
+              setActive((activeIndex + 1) % items.length);
+            }
+            e.preventDefault(); 
             break;
+            
+          case 'ArrowUp':
+            if (isOpen) { 
+              setActive(activeIndex <= 0 ? items.length - 1 : activeIndex - 1); 
+              e.preventDefault(); 
+            }
+            break;
+            
           case 'Enter':
             if (isOpen) {
               const idx = activeIndex >= 0 ? activeIndex : 0;
@@ -793,102 +913,96 @@
                 const label = li.querySelector('span')?.textContent?.trim();
                 if (type === 'bookmark' && li.dataset.url) {
                   e.preventDefault();
-                  sugg.classList.remove('show'); activeIndex=-1;
+                  closeSuggestions();
                   window.location.replace(li.dataset.url);
                   return;
                 } else if (label) {
                   e.preventDefault();
                   q.value = label;
-                  sugg.classList.remove('show'); activeIndex=-1;
+                  closeSuggestions();
                   submitSearch();
                   return;
                 }
               }
             }
             break;
+            
           case 'Escape':
-            if (isOpen) { sugg.classList.remove('show'); activeIndex=-1; e.preventDefault(); }
+            if (isOpen) { 
+              closeSuggestions(); 
+              e.preventDefault(); 
+            }
             break;
         }
       }
 
-      on(q, 'input', (e)=> updateSuggestions(e.target.value));
-      on(q, 'focus', () => { const v=q.value.trim(); if (v) updateSuggestions(v); });
+      // IME composition support
+      on(q, 'compositionstart', () => { isComposing = true; });
+      on(q, 'compositionend', () => { 
+        isComposing = false; 
+        updateSuggestions(q.value); 
+      });
+
+      on(q, 'input', (e) => {
+        if (!isComposing) {
+          updateSuggestions(e.target.value);
+        }
+      });
+      on(q, 'focus', () => { const v=q.value.trim(); if (v && !isComposing) updateSuggestions(v); });
       on(q, 'keydown', handleSuggestionKeyboard);
+      
+      // Click outside to close suggestions
+      on(document, 'click', (e) => {
+        if (!bar.contains(e.target)) {
+          closeSuggestions();
+        }
+      });
+      
       on(sugg, 'mousedown', (e)=> e.preventDefault());
       on(sugg, 'click', (e) => {
         const li = e.target.closest('li'); if (!li) return;
         const type = li.dataset.type;
         if (type === 'bookmark' && li.dataset.url) {
-          sugg.classList.remove('show'); activeIndex=-1;
+          closeSuggestions();
           window.location.replace(li.dataset.url);
           return;
         }
         const t = li.querySelector('span')?.textContent?.trim();
-        if (t) { q.value = t; sugg.classList.remove('show'); submitSearch(); }
-      });
-      on(sugg, 'blur', () => setTimeout(()=>{ sugg.classList.remove('show'); activeIndex=-1; },120));
-
-      let rec = null; let isListening = false;
-      on(voice, 'click', () => {
-        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SR) { alert("Voice search isn't supported in this browser."); return; }
-
-        if (isListening && rec) {
-          try { rec.stop(); } catch {}
-          return;
-        }
-
-        try {
-          rec = new SR();
-          rec.lang = navigator.language || 'en-US';
-          rec.interimResults = true;
-          rec.maxAlternatives = 1;
-
-          isListening = true;
-          voice.classList.add('recording');
-          voice.innerHTML = VOICE_ICONS.stop;
-          voice.title = 'Stop';
-          voice.setAttribute('aria-label', 'Stop');
-
-          rec.onresult = (ev) => {
-            try {
-              const text = Array.from(ev.results).map(r => (r[0]?.transcript || '')).join(' ').trim();
-              if (text) {
-                q.value = text;
-                q.focus();
-                const len = q.value.length; q.setSelectionRange(len, len);
-              }
-            } catch {}
-          };
-
-          rec.onerror = () => {};
-          rec.onend = () => {
-            isListening = false; rec = null;
-            voice.classList.remove('recording');
-            voice.innerHTML = VOICE_ICONS.mic;
-            voice.title = 'Search by voice';
-            voice.setAttribute('aria-label', 'Search by voice');
-          };
-
-          rec.start();
-        } catch {
-          isListening = false; rec = null;
-          voice.classList.remove('recording');
-          voice.innerHTML = VOICE_ICONS.mic;
-          voice.title = 'Search by voice';
-          voice.setAttribute('aria-label', 'Search by voice');
-        }
+        if (t) { q.value = t; closeSuggestions(); submitSearch(); }
       });
 
-      on(lensBtn, 'click', () => {
-        window.open('https://lens.google.com/', '_blank', 'noopener');
-      });
+      // Focus trap for modal dialog
+      const focusableSelectors = 'input, button, select, textarea, [tabindex]:not([tabindex="-1"])';
+      let lastFocusedElement = null;
 
-      on(ai, 'click', () => {
-        const v = q.value.trim(); const base = 'https://www.google.com/search?udm=50';
-        window.location.replace(v ? `${base}&q=${encodeURIComponent(v)}` : base);
-      });
+      const trapFocus = (container) => {
+        const focusable = Array.from(container.querySelectorAll(focusableSelectors))
+          .filter(el => !el.disabled && el.offsetHeight > 0);
+        
+        if (!focusable.length) return;
+        
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        
+        const handleTabKey = (e) => {
+          if (e.key !== 'Tab') return;
+          
+          if (e.shiftKey) {
+            if (document.activeElement === first) {
+              e.preventDefault();
+              last.focus();
+            }
+          } else {
+            if (document.activeElement === last) {
+              e.preventDefault();
+              first.focus();
+            }
+          }
+        };
+        
+        container.addEventListener('keydown', handleTabKey);
+        return () => container.removeEventListener('keydown', handleTabKey);
+      };
 
       const sc = $('#shortcuts');
       const scGrid = $('#scGrid');
@@ -1074,6 +1188,7 @@
       };
 
       const render = () => {
+        buildBookmarkIndex(); // Update search index
         renderGrid(scGrid, 'root');
         sc.classList.toggle('edit', state.edit);
         scEdit.setAttribute('aria-pressed', String(state.edit));
@@ -1125,6 +1240,8 @@
       };
 
       const openDialog = (mode='link', preset = {}, editId = null) => {
+        lastFocusedElement = document.activeElement;
+        
         dialogState = { mode, editId };
         scDialogTitle.textContent =
           editId ? (mode === 'folder' ? 'Rename folder' : 'Edit shortcut')
@@ -1149,11 +1266,37 @@
 
         inputTitle.value = preset.title || '';
         inputUrl.value = preset.url || '';
+        
         overlay.classList.add('show');
+        overlay.setAttribute('aria-hidden', 'false');
         dialog.classList.add('show');
-        inputTitle.focus();
+        dialog.setAttribute('aria-hidden', 'false');
+        
+        // Set up focus trap and focus first input
+        const removeTrap = trapFocus(dialog);
+        dialog._removeTrap = removeTrap;
+        
+        setTimeout(() => inputTitle.focus(), 10);
       };
-      const closeDialog = () => { dialog.classList.remove('show'); overlay.classList.remove('show'); };
+      
+      const closeDialog = () => { 
+        dialog.classList.remove('show'); 
+        dialog.setAttribute('aria-hidden', 'true');
+        overlay.classList.remove('show'); 
+        overlay.setAttribute('aria-hidden', 'true');
+        
+        // Remove focus trap
+        if (dialog._removeTrap) {
+          dialog._removeTrap();
+          dialog._removeTrap = null;
+        }
+        
+        // Return focus to the element that opened the dialog
+        if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+          setTimeout(() => lastFocusedElement.focus(), 10);
+        }
+        lastFocusedElement = null;
+      };
 
       const openEdit = (id) => {
         const found = findById(id);
@@ -1510,6 +1653,7 @@
         if (e.key === 'Escape') {
           if (dialog.classList.contains('show')) { closeDialog(); return; }
           if (folderView.classList.contains('show')) { closeFolder(); return; }
+          if (sugg.classList.contains('show')) { closeSuggestions(); return; }
         }
       });
 
@@ -1537,10 +1681,12 @@
         const data = await EXT.connect();
         if (data && Array.isArray(data.items)) {
           state.items = data.items;
+          buildBookmarkIndex(); // Build initial index
           scImport.setAttribute('disabled', 'true');
           render();
           try { const el = document.createElement('div'); el.style.cssText='position:fixed;right:8px;bottom:8px;font:12px system-ui;color:#8bbdff;opacity:.6;user-select:none;'; el.textContent='Synced with Bookmarks'; document.body.appendChild(el); setTimeout(()=>el.remove(), 3000); } catch {}
         } else {
+          buildBookmarkIndex(); // Build initial index
           render();
         }
         
