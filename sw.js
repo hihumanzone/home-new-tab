@@ -1,7 +1,7 @@
 const VERSION = 'v1.0.2';
 const CACHE_NAME = `home-new-tab-${VERSION}`;
 const IMG_CACHE = `home-new-tab-img-${VERSION}`;
-const PRECACHE = ['./', './index.html', './wallpaper-dark.jpg'];
+const PRECACHE = ['./', './index.html', './styles.css', './js/app.js', './js/dom-utils.js', './js/ext-api.js', './js/state.js', './js/search.js', './js/shortcuts.js', './wallpaper-dark.jpg'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
