@@ -56,6 +56,28 @@ export function createVoiceSearch(voiceBtn) {
   let rec = null;
   let isListening = false;
 
+  /**
+   * Update voice button state and appearance
+   */
+  const updateVoiceButton = (listening) => {
+    isListening = listening;
+    voiceBtn.classList.toggle('recording', listening);
+    voiceBtn.innerHTML = listening ? VOICE_ICONS.stop : VOICE_ICONS.mic;
+    voiceBtn.title = listening ? 'Stop' : 'Search by voice';
+    voiceBtn.setAttribute('aria-label', listening ? 'Stop' : 'Search by voice');
+  };
+
+  /**
+   * Stop voice recognition and reset state
+   */
+  const stopRecognition = () => {
+    if (rec) {
+      try { rec.stop(); } catch {}
+      rec = null;
+    }
+    updateVoiceButton(false);
+  };
+
   return function handleVoiceClick() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) { 
@@ -64,7 +86,7 @@ export function createVoiceSearch(voiceBtn) {
     }
 
     if (isListening && rec) {
-      try { rec.stop(); } catch {}
+      stopRecognition();
       return;
     }
 
@@ -74,11 +96,7 @@ export function createVoiceSearch(voiceBtn) {
       rec.interimResults = true;
       rec.maxAlternatives = 1;
 
-      isListening = true;
-      voiceBtn.classList.add('recording');
-      voiceBtn.innerHTML = VOICE_ICONS.stop;
-      voiceBtn.title = 'Stop';
-      voiceBtn.setAttribute('aria-label', 'Stop');
+      updateVoiceButton(true);
 
       rec.onresult = (ev) => {
         try {
@@ -93,24 +111,12 @@ export function createVoiceSearch(voiceBtn) {
         } catch {}
       };
 
-      rec.onerror = () => {};
-      rec.onend = () => {
-        isListening = false; 
-        rec = null;
-        voiceBtn.classList.remove('recording');
-        voiceBtn.innerHTML = VOICE_ICONS.mic;
-        voiceBtn.title = 'Search by voice';
-        voiceBtn.setAttribute('aria-label', 'Search by voice');
-      };
+      rec.onerror = stopRecognition;
+      rec.onend = stopRecognition;
 
       rec.start();
     } catch {
-      isListening = false; 
-      rec = null;
-      voiceBtn.classList.remove('recording');
-      voiceBtn.innerHTML = VOICE_ICONS.mic;
-      voiceBtn.title = 'Search by voice';
-      voiceBtn.setAttribute('aria-label', 'Search by voice');
+      stopRecognition();
     }
   };
 }
@@ -120,6 +126,9 @@ export function createSuggestionSystem(qInput, suggElement) {
   let lastQuery = '';
   let suggestionRequestId = 0;
 
+  /**
+   * Update ARIA expanded state for accessibility
+   */
   const updateAriaExpanded = (expanded) => {
     qInput.setAttribute('aria-expanded', expanded ? 'true' : 'false');
     if (!expanded) {
@@ -127,6 +136,9 @@ export function createSuggestionSystem(qInput, suggElement) {
     }
   };
 
+  /**
+   * Set active suggestion item for keyboard navigation
+   */
   const setActive = (idx) => {
     const items = Array.from(suggElement.querySelectorAll('li'));
     if (!items.length) { 
@@ -136,10 +148,10 @@ export function createSuggestionSystem(qInput, suggElement) {
     }
     
     items.forEach((li, i) => { 
-      const a = i === idx; 
-      li.classList.toggle('active', a); 
-      li.setAttribute('aria-selected', a ? 'true' : 'false');
-      if (a) li.id = li.id || `suggestion-${i}`;
+      const isActive = i === idx; 
+      li.classList.toggle('active', isActive); 
+      li.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      if (isActive) li.id = li.id || `suggestion-${i}`;
     });
     
     activeIndex = idx; 
@@ -149,6 +161,35 @@ export function createSuggestionSystem(qInput, suggElement) {
     } else {
       qInput.removeAttribute('aria-activedescendant');
     }
+  };
+
+  /**
+   * Hide suggestions and reset state
+   */
+  const hidesuggestions = () => {
+    suggElement.classList.remove('show');
+    activeIndex = -1;
+    updateAriaExpanded(false);
+  };
+
+  /**
+   * Handle suggestion selection (both bookmark and query types)
+   */
+  const selectSuggestion = (li) => {
+    const type = li.dataset.type;
+    if (type === 'bookmark' && li.dataset.url) {
+      hidesuggestions();
+      window.location.replace(li.dataset.url);
+      return true;
+    }
+    
+    const text = li.querySelector('span')?.textContent?.trim();
+    if (text) { 
+      qInput.value = text; 
+      hidesuggestions(); 
+      return true;
+    }
+    return false;
   };
 
   const searchBookmarks = (query, limit = SUGGESTIONS_CONFIG.maxItems) => {
@@ -193,30 +234,14 @@ export function createSuggestionSystem(qInput, suggElement) {
         break;
       case 'Enter':
         if (isOpen && activeIndex >= 0 && items[activeIndex]) {
-          const li = items[activeIndex];
-          const type = li.dataset.type;
-          if (type === 'bookmark' && li.dataset.url) {
-            suggElement.classList.remove('show'); 
-            activeIndex = -1; 
-            updateAriaExpanded(false);
-            window.location.replace(li.dataset.url);
-            return;
+          if (selectSuggestion(items[activeIndex])) {
+            e.preventDefault();
           }
-          const t = li.querySelector('span')?.textContent?.trim();
-          if (t) { 
-            qInput.value = t; 
-            suggElement.classList.remove('show'); 
-            updateAriaExpanded(false); 
-            // Would trigger search submit here
-          }
-          e.preventDefault();
         }
         break;
       case 'Escape':
         if (isOpen) {
-          suggElement.classList.remove('show');
-          activeIndex = -1;
-          updateAriaExpanded(false);
+          hidesuggestions();
           e.preventDefault();
         }
         break;
@@ -226,9 +251,7 @@ export function createSuggestionSystem(qInput, suggElement) {
   const updateSuggestions = (query) => {
     // Implementation would go here
     // For now, just hide suggestions
-    suggElement.classList.remove('show');
-    activeIndex = -1;
-    updateAriaExpanded(false);
+    hidesuggestions();
   };
 
   return {
@@ -237,10 +260,7 @@ export function createSuggestionSystem(qInput, suggElement) {
     setActive,
     renderSuggestions,
     searchBookmarks,
-    hidesuggestions: () => {
-      suggElement.classList.remove('show');
-      activeIndex = -1;
-      updateAriaExpanded(false);
-    }
+    hidesuggestions,
+    selectSuggestion
   };
 }

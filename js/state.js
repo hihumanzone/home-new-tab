@@ -2,7 +2,7 @@
  * State management and local storage
  */
 
-import { uid } from './dom-utils.js';
+import { uid, formatDateForFilename } from './dom-utils.js';
 import { EXT } from './ext-api.js';
 
 export const store = {
@@ -31,9 +31,7 @@ export const store = {
     const payload = { version: 1, exportedAt: new Date().toISOString(), items };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
-    const pad = (n) => String(n).padStart(2, '0');
-    const d = new Date();
-    const name = `shortcuts-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.json`;
+    const name = `shortcuts-${formatDateForFilename()}.json`;
     a.href = URL.createObjectURL(blob);
     a.download = name;
     document.body.appendChild(a);
@@ -105,16 +103,19 @@ export function setListForContext(ctx, list) {
   store.save(state.items);
 }
 
+/**
+ * Create a sanitized link object from title and url
+ */
+const createSanitizedLink = (title, url) => {
+  const t = String(title || '').trim();
+  const u = String(url || '').trim();
+  if (!t || !u) return null;
+  return { id: uid('sc'), type: 'link', title: t, url: u };
+};
+
 function sanitizeImport(json) {
   const items = json?.items || json || [];
   if (!Array.isArray(items)) return [];
-  
-  const addLink = (title, url) => {
-    const t = String(title || '').trim();
-    const u = String(url || '').trim();
-    if (!t || !u) return null;
-    return { id: uid('sc'), type: 'link', title: t, url: u };
-  };
   
   const out = [];
   for (const it of items) {
@@ -123,14 +124,14 @@ function sanitizeImport(json) {
       if (Array.isArray(it.children)) {
         for (const sub of it.children) {
           if (sub?.type === 'link') {
-            const link = addLink(sub.title, sub.url);
+            const link = createSanitizedLink(sub.title, sub.url);
             if (link) folder.children.push(link);
           }
         }
       }
       out.push(folder);
     } else if (it.type === 'link') {
-      const link = addLink(it.title, it.url);
+      const link = createSanitizedLink(it.title, it.url);
       if (link) out.push(link);
     }
   }

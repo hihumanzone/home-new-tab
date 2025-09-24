@@ -2,11 +2,64 @@
  * Main application entry point
  */
 
-import { getDOMElements, on } from './dom-utils.js';
+import { getDOMElements, on, showNotification } from './dom-utils.js';
 import { EXT } from './ext-api.js';
 import { state, store } from './state.js';
 import { VOICE_ICONS, createVoiceSearch, createSuggestionSystem, isValidUrl } from './search.js';
 import { render, handleTileClick, closeFolder } from './shortcuts.js';
+
+/**
+ * Show sync notification when connected to extension
+ */
+const showSyncNotification = () => {
+  showNotification('Synced with Bookmarks');
+};
+
+/**
+ * Set import button disabled state
+ */
+/**
+ * Common handler for search form submission and go button
+ */
+const handleSearch = (qElement, formElement) => {
+  const v = qElement.value.trim();
+  if (!v) { 
+    qElement.focus(); 
+    return false;
+  }
+  
+  // Check for direct URL
+  const url = isValidUrl(v);
+  if (url) { 
+    window.location.replace(url); 
+    return false;
+  }
+  
+  // Allow form submission for Google search
+  return true;
+};
+
+/**
+ * Common handler for edit toggle buttons
+ */
+const handleEditToggle = (stateProperty) => {
+  state[stateProperty] = !state[stateProperty];
+  render();
+};
+
+/**
+ * Set import button disabled state
+ */
+const setImportDisabled = (disabled) => {
+  const scImport = document.getElementById('scImport');
+  if (scImport) {
+    if (disabled) {
+      scImport.setAttribute('disabled', 'true');
+    } else {
+      scImport.removeAttribute('disabled');
+    }
+  }
+};
 
 // Initialize the application
 function initializeApp() {
@@ -47,38 +100,16 @@ function setupSearch(elements, suggestionSystem) {
   
   // Search form submission
   on(form, 'submit', (e) => {
-    const v = q.value.trim();
-    if (!v) { 
-      e.preventDefault(); 
-      q.focus(); 
-      return; 
-    }
-    
-    // Check for direct URL
-    const url = isValidUrl(v);
-    if (url) { 
-      e.preventDefault(); 
-      window.location.replace(url); 
-      return; 
+    if (!handleSearch(q, form)) {
+      e.preventDefault();
     }
   });
   
   // Search button
   on(go, 'click', () => {
-    const v = q.value.trim();
-    if (!v) { 
-      q.focus(); 
-      return; 
+    if (handleSearch(q, form)) {
+      form.submit();
     }
-    
-    const url = isValidUrl(v);
-    if (url) { 
-      window.location.replace(url); 
-      return; 
-    }
-    
-    // Submit form for Google search
-    form.submit();
   });
   
   // Google Lens button
@@ -108,18 +139,11 @@ function setupSearch(elements, suggestionSystem) {
     const li = e.target.closest('li');
     if (!li) return;
     
-    const type = li.dataset.type;
-    if (type === 'bookmark' && li.dataset.url) {
-      suggestionSystem.hidesuggestions();
-      window.location.replace(li.dataset.url);
-      return;
-    }
-    
-    const text = li.querySelector('span')?.textContent?.trim();
-    if (text) { 
-      q.value = text; 
-      suggestionSystem.hidesuggestions(); 
-      form.submit();
+    if (suggestionSystem.selectSuggestion(li)) {
+      // If it was a bookmark, navigation happened; if it was a query, submit form
+      if (li.dataset.type !== 'bookmark') {
+        form.submit();
+      }
     }
   });
   
@@ -139,18 +163,12 @@ function setupShortcuts(elements) {
   // Shortcut actions
   on(scAdd, 'click', () => openDialog('link'));
   on(scAddFolder, 'click', () => openDialog('folder'));
-  on(scEdit, 'click', () => { 
-    state.edit = !state.edit; 
-    render(); 
-  });
+  on(scEdit, 'click', () => handleEditToggle('edit'));
   
   // Folder view actions
   on(fvBack, 'click', closeFolder);
   on(fvAdd, 'click', () => openDialog('link', state.folderOpen));
-  on(fvToggleEdit, 'click', () => { 
-    state.folderEdit = !state.folderEdit; 
-    render(); 
-  });
+  on(fvToggleEdit, 'click', () => handleEditToggle('folderEdit'));
   
   // Import/Export
   on(scExport, 'click', () => store.export(state.items));
@@ -228,20 +246,9 @@ function setupExtensionIntegration() {
     const data = e.detail;
     if (data && Array.isArray(data.items)) {
       state.items = data.items;
-      const scImport = document.getElementById('scImport');
-      if (scImport) {
-        scImport.setAttribute('disabled', 'true');
-      }
+      setImportDisabled(true);
       render();
-      
-      // Show sync notification
-      try { 
-        const el = document.createElement('div'); 
-        el.style.cssText = 'position:fixed;right:8px;bottom:8px;font:12px system-ui;color:#8bbdff;opacity:.6;user-select:none;'; 
-        el.textContent = 'Synced with Bookmarks'; 
-        document.body.appendChild(el); 
-        setTimeout(() => el.remove(), 3000); 
-      } catch {}
+      showSyncNotification();
     }
   });
   
@@ -261,20 +268,9 @@ function setupExtensionIntegration() {
     const data = await EXT.connect();
     if (data && Array.isArray(data.items)) {
       state.items = data.items;
-      const scImport = document.getElementById('scImport');
-      if (scImport) {
-        scImport.setAttribute('disabled', 'true');
-      }
+      setImportDisabled(true);
       render();
-      
-      // Show sync notification
-      try { 
-        const el = document.createElement('div'); 
-        el.style.cssText = 'position:fixed;right:8px;bottom:8px;font:12px system-ui;color:#8bbdff;opacity:.6;user-select:none;'; 
-        el.textContent = 'Synced with Bookmarks'; 
-        document.body.appendChild(el); 
-        setTimeout(() => el.remove(), 3000); 
-      } catch {}
+      showSyncNotification();
     }
   })();
 }
