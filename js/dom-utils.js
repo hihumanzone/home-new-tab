@@ -13,6 +13,27 @@ export const escapeHTML = (s) => String(s ?? '').replace(/[&<>"']/g, m => ({'&':
 export const uid = (p = 'id') => `${p}_${Math.random().toString(36).slice(2,9)}${Date.now().toString(36)}`;
 
 /**
+ * Format a date for filename usage (YYYYMMDD-HHMM)
+ */
+export const formatDateForFilename = (date = new Date()) => {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}${pad(date.getMonth()+1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}`;
+};
+
+/**
+ * Show a temporary notification
+ */
+export const showNotification = (text, duration = 3000, styles = 'position:fixed;right:8px;bottom:8px;font:12px system-ui;color:#8bbdff;opacity:.6;user-select:none;') => {
+  try {
+    const el = document.createElement('div');
+    el.style.cssText = styles;
+    el.textContent = text;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), duration);
+  } catch {}
+};
+
+/**
  * Get all DOM elements used throughout the app
  */
 export function getDOMElements() {

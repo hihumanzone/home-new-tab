@@ -2,11 +2,32 @@
  * Main application entry point
  */
 
-import { getDOMElements, on } from './dom-utils.js';
+import { getDOMElements, on, showNotification } from './dom-utils.js';
 import { EXT } from './ext-api.js';
 import { state, store } from './state.js';
 import { VOICE_ICONS, createVoiceSearch, createSuggestionSystem, isValidUrl } from './search.js';
 import { render, handleTileClick, closeFolder } from './shortcuts.js';
+
+/**
+ * Show sync notification when connected to extension
+ */
+const showSyncNotification = () => {
+  showNotification('Synced with Bookmarks');
+};
+
+/**
+ * Set import button disabled state
+ */
+const setImportDisabled = (disabled) => {
+  const scImport = document.getElementById('scImport');
+  if (scImport) {
+    if (disabled) {
+      scImport.setAttribute('disabled', 'true');
+    } else {
+      scImport.removeAttribute('disabled');
+    }
+  }
+};
 
 // Initialize the application
 function initializeApp() {
@@ -228,20 +249,9 @@ function setupExtensionIntegration() {
     const data = e.detail;
     if (data && Array.isArray(data.items)) {
       state.items = data.items;
-      const scImport = document.getElementById('scImport');
-      if (scImport) {
-        scImport.setAttribute('disabled', 'true');
-      }
+      setImportDisabled(true);
       render();
-      
-      // Show sync notification
-      try { 
-        const el = document.createElement('div'); 
-        el.style.cssText = 'position:fixed;right:8px;bottom:8px;font:12px system-ui;color:#8bbdff;opacity:.6;user-select:none;'; 
-        el.textContent = 'Synced with Bookmarks'; 
-        document.body.appendChild(el); 
-        setTimeout(() => el.remove(), 3000); 
-      } catch {}
+      showSyncNotification();
     }
   });
   
@@ -261,20 +271,9 @@ function setupExtensionIntegration() {
     const data = await EXT.connect();
     if (data && Array.isArray(data.items)) {
       state.items = data.items;
-      const scImport = document.getElementById('scImport');
-      if (scImport) {
-        scImport.setAttribute('disabled', 'true');
-      }
+      setImportDisabled(true);
       render();
-      
-      // Show sync notification
-      try { 
-        const el = document.createElement('div'); 
-        el.style.cssText = 'position:fixed;right:8px;bottom:8px;font:12px system-ui;color:#8bbdff;opacity:.6;user-select:none;'; 
-        el.textContent = 'Synced with Bookmarks'; 
-        document.body.appendChild(el); 
-        setTimeout(() => el.remove(), 3000); 
-      } catch {}
+      showSyncNotification();
     }
   })();
 }

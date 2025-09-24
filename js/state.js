@@ -2,7 +2,7 @@
  * State management and local storage
  */
 
-import { uid } from './dom-utils.js';
+import { uid, formatDateForFilename } from './dom-utils.js';
 import { EXT } from './ext-api.js';
 
 export const store = {
@@ -31,9 +31,7 @@ export const store = {
     const payload = { version: 1, exportedAt: new Date().toISOString(), items };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
-    const pad = (n) => String(n).padStart(2, '0');
-    const d = new Date();
-    const name = `shortcuts-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.json`;
+    const name = `shortcuts-${formatDateForFilename()}.json`;
     a.href = URL.createObjectURL(blob);
     a.download = name;
     document.body.appendChild(a);

@@ -6,6 +6,27 @@ import { escapeHTML } from './dom-utils.js';
 import { state, findById, removeById, listForContext, setListForContext } from './state.js';
 import { EXT } from './ext-api.js';
 
+// Constants for SVG icons
+const ICONS = {
+  edit: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+  </svg>`,
+  close: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <path d="M18 6L6 18M6 6l12 12"/>
+  </svg>`,
+  folder: `<svg viewBox="0 0 24 24" fill="currentColor">
+    <path d="M4 4h6l2 2h8v12H4V4z" opacity=".8"/>
+  </svg>`,
+  delete: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z"/>
+  </svg>`
+};
+
+/**
+ * Get the appropriate icon HTML for edit button based on edit state
+ */
+const getEditIcon = (isEditing) => isEditing ? ICONS.close : ICONS.edit;
+
 export function getFaviconUrl(url) {
   if (!url) return '';
   try {
@@ -30,9 +51,7 @@ export function renderTile(item, inFolder = false) {
       <div class="favicon">
         ${isFolder ? `
           <div class="folder-ico">
-            <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d="M4 4h6l2 2h8v12H4V4z" opacity=".8"/>
-            </svg>
+            ${ICONS.folder}
           </div>
           ${count > 0 ? `<div class="count">${count}</div>` : ''}
         ` : `
@@ -43,19 +62,27 @@ export function renderTile(item, inFolder = false) {
       <div class="label">${escapeHTML(item.title)}</div>
       
       <button class="action edit" title="Edit" aria-label="Edit ${item.title}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-        </svg>
+        ${ICONS.edit}
       </button>
       
       <button class="action remove" title="Delete" aria-label="Delete ${item.title}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z"/>
-        </svg>
+        ${ICONS.delete}
       </button>
     </li>
   `;
 }
+
+/**
+ * Update button state and icon for edit toggle buttons
+ */
+const updateEditButtonState = (buttonId, iconId, isEditing) => {
+  const button = document.getElementById(buttonId);
+  const icon = document.getElementById(iconId);
+  if (button && icon) {
+    button.setAttribute('aria-pressed', isEditing ? 'true' : 'false');
+    icon.innerHTML = getEditIcon(isEditing);
+  }
+};
 
 export function renderShortcuts(containerEl) {
   if (!containerEl) return;
@@ -64,20 +91,7 @@ export function renderShortcuts(containerEl) {
   containerEl.innerHTML = html;
   
   // Update edit button state
-  const scEdit = document.getElementById('scEdit');
-  const scEditIcon = document.getElementById('scEditIcon');
-  if (scEdit && scEditIcon) {
-    scEdit.setAttribute('aria-pressed', state.edit ? 'true' : 'false');
-    scEditIcon.innerHTML = state.edit ? `
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M18 6L6 18M6 6l12 12"/>
-      </svg>
-    ` : `
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-      </svg>
-    `;
-  }
+  updateEditButtonState('scEdit', 'scEditIcon', state.edit);
   
   // Update shortcuts container class
   const shortcuts = document.getElementById('shortcuts');
@@ -106,20 +120,8 @@ export function renderFolderView(folderId, containerEl, titleEl) {
     folderView.classList.toggle('edit', state.folderEdit);
   }
   
-  const fvToggleEdit = document.getElementById('fvToggleEdit');
-  const fvToggleIcon = document.getElementById('fvToggleIcon');
-  if (fvToggleEdit && fvToggleIcon) {
-    fvToggleEdit.setAttribute('aria-pressed', state.folderEdit ? 'true' : 'false');
-    fvToggleIcon.innerHTML = state.folderEdit ? `
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M18 6L6 18M6 6l12 12"/>
-      </svg>
-    ` : `
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-      </svg>
-    `;
-  }
+  // Update folder view button state  
+  updateEditButtonState('fvToggleEdit', 'fvToggleIcon', state.folderEdit);
 }
 
 export function closeFolder() {
