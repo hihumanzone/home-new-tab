@@ -23,6 +23,25 @@ const ICONS = {
 };
 
 /**
+ * Common function to update container classes based on edit state
+ */
+const updateContainerEditClass = (containerId, isEditing) => {
+  const container = document.getElementById(containerId);
+  if (container) {
+    container.classList.toggle('edit', isEditing);
+  }
+};
+
+/**
+ * Common function to render items in a container
+ */
+const renderItemsInContainer = (containerEl, items, inFolder = false) => {
+  if (!containerEl) return;
+  const html = items.map(item => renderTile(item, inFolder)).join('');
+  containerEl.innerHTML = html;
+};
+
+/**
  * Get the appropriate icon HTML for edit button based on edit state
  */
 const getEditIcon = (isEditing) => isEditing ? ICONS.close : ICONS.edit;
@@ -85,19 +104,13 @@ const updateEditButtonState = (buttonId, iconId, isEditing) => {
 };
 
 export function renderShortcuts(containerEl) {
-  if (!containerEl) return;
-  
-  const html = state.items.map(item => renderTile(item)).join('');
-  containerEl.innerHTML = html;
+  renderItemsInContainer(containerEl, state.items);
   
   // Update edit button state
   updateEditButtonState('scEdit', 'scEditIcon', state.edit);
   
   // Update shortcuts container class
-  const shortcuts = document.getElementById('shortcuts');
-  if (shortcuts) {
-    shortcuts.classList.toggle('edit', state.edit);
-  }
+  updateContainerEditClass('shortcuts', state.edit);
 }
 
 export function renderFolderView(folderId, containerEl, titleEl) {
@@ -108,16 +121,13 @@ export function renderFolderView(folderId, containerEl, titleEl) {
     titleEl.textContent = folder.title;
   }
   
-  if (containerEl) {
-    const html = (folder.children || []).map(item => renderTile(item, true)).join('');
-    containerEl.innerHTML = html;
-  }
+  renderItemsInContainer(containerEl, folder.children || [], true);
   
   // Update folder view classes
+  updateContainerEditClass('folderView', state.folderEdit);
   const folderView = document.getElementById('folderView');
   if (folderView) {
     folderView.classList.add('show');
-    folderView.classList.toggle('edit', state.folderEdit);
   }
   
   // Update folder view button state  

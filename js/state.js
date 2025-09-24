@@ -103,16 +103,19 @@ export function setListForContext(ctx, list) {
   store.save(state.items);
 }
 
+/**
+ * Create a sanitized link object from title and url
+ */
+const createSanitizedLink = (title, url) => {
+  const t = String(title || '').trim();
+  const u = String(url || '').trim();
+  if (!t || !u) return null;
+  return { id: uid('sc'), type: 'link', title: t, url: u };
+};
+
 function sanitizeImport(json) {
   const items = json?.items || json || [];
   if (!Array.isArray(items)) return [];
-  
-  const addLink = (title, url) => {
-    const t = String(title || '').trim();
-    const u = String(url || '').trim();
-    if (!t || !u) return null;
-    return { id: uid('sc'), type: 'link', title: t, url: u };
-  };
   
   const out = [];
   for (const it of items) {
@@ -121,14 +124,14 @@ function sanitizeImport(json) {
       if (Array.isArray(it.children)) {
         for (const sub of it.children) {
           if (sub?.type === 'link') {
-            const link = addLink(sub.title, sub.url);
+            const link = createSanitizedLink(sub.title, sub.url);
             if (link) folder.children.push(link);
           }
         }
       }
       out.push(folder);
     } else if (it.type === 'link') {
-      const link = addLink(it.title, it.url);
+      const link = createSanitizedLink(it.title, it.url);
       if (link) out.push(link);
     }
   }
