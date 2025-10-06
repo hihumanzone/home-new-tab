@@ -106,6 +106,8 @@ body::before {
     flex-shrink: 0;
     gap: 1rem;
     min-height: var(--header-height);
+    position: relative;
+    z-index: 10;
 }
 
 /* Breadcrumb Navigation */
