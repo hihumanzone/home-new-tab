@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Custom New Tab",
+  "version": "1.0.0",
+  "description": "A minimal dark-themed homepage with search and bookmarks",
+  "permissions": [
+    "bookmarks"
+  ],
+  "host_permissions": [
+    "https://suggestqueries.google.com/*"
+  ],
+  "chrome_url_overrides": {
+    "newtab": "homepage.html"
+  }
+}
