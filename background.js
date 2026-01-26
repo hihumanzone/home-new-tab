@@ -1,4 +1,3 @@
-// background.js (NEW FILE - Service Worker)
 // Handle Google suggestions API requests to avoid CORS issues
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
