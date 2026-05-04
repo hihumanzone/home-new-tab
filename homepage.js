@@ -636,11 +636,9 @@ class App {
   }
 
   loadFavicons() {
-    this.dom.bookmarksGrid.querySelectorAll('.bookmark-favicon').forEach((img) => {
     const faviconElements = this.dom.bookmarksGrid.querySelectorAll('.bookmark-favicon');
-    
-    faviconElements.forEach((img) => {
 
+    faviconElements.forEach((img) => {
       const url = img.dataset.url;
       const hostname = img.dataset.host;
       if (url && hostname) {
