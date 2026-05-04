@@ -131,6 +131,24 @@ class FaviconManager {
     this.pending = new Map();
   }
 
+  loadCache() {
+    const data = Storage.get(CONFIG.FAVICON_CACHE_KEY, {});
+    const now = Date.now();
+    const valid = {};
+
+    for (const [key, entry] of Object.entries(data)) {
+      if (entry && now - entry.ts < CONFIG.FAVICON_CACHE_EXPIRY_MS) {
+        valid[key] = entry;
+      }
+    }
+
+    return valid;
+  }
+
+  saveCache() {
+    Storage.set(CONFIG.FAVICON_CACHE_KEY, this.cache);
+  }
+
   getSources(hostname, origin) {
     const sources = [];
 
