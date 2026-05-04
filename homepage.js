@@ -18,10 +18,16 @@ const CONFIG = {
   BOOKMARKS_BAR_ID: '1',
 
   // Favicons
+<<<<<<< HEAD
   FAVICON_SIZES: [32, 16, 48, 64],
   FAVICON_CACHE_KEY: 'newtab_favicon_cache_v1',
   FAVICON_CACHE_EXPIRY_MS: 86400000,
   FAVICON_TIMEOUT_MS: 5000,
+=======
+  FAVICON_CACHE_KEY: 'newtab_favicon_cache_v2',
+  FAVICON_CACHE_EXPIRY_MS: 86400000,
+  FAVICON_TIMEOUT_MS: 4000,
+>>>>>>> 71e98b2 (Initial commit: Add updated code and assets for home-new-tab extension)
 
   // Notes
   NOTES_STORAGE_KEY: 'newtab_notes_v2',
@@ -81,20 +87,40 @@ const Utils = {
   clamp: (str, max) => (str.length <= max ? str : str.slice(0, max)),
 
   loadImage(url, timeout = CONFIG.FAVICON_TIMEOUT_MS) {
+<<<<<<< HEAD
     return new Promise((resolve) => {
       const img = new Image();
       const timer = setTimeout(() => {
         img.src = '';
         resolve(null);
+=======
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const timer = setTimeout(() => {
+        img.src = '';
+        reject(new Error(`Timeout: ${url}`));
+>>>>>>> 71e98b2 (Initial commit: Add updated code and assets for home-new-tab extension)
       }, timeout);
 
       img.onload = () => {
         clearTimeout(timer);
+<<<<<<< HEAD
         resolve(img.naturalWidth > 0 ? url : null);
       };
       img.onerror = () => {
         clearTimeout(timer);
         resolve(null);
+=======
+        if (img.naturalWidth > 0) {
+          resolve({ img, url });
+        } else {
+          reject(new Error(`Zero dimensions: ${url}`));
+        }
+      };
+      img.onerror = () => {
+        clearTimeout(timer);
+        reject(new Error(`Load failed: ${url}`));
+>>>>>>> 71e98b2 (Initial commit: Add updated code and assets for home-new-tab extension)
       };
       img.src = url;
     });
@@ -135,11 +161,73 @@ class FaviconManager {
     this.pending = new Map();
   }
 
+<<<<<<< HEAD
+=======
+  getSources(hostname, origin) {
+    const sources = [];
+    if (origin) {
+      sources.push({ url: `chrome://favicon/${origin}/`, type: 'chrome' });
+    }
+    sources.push(
+      { url: `https://www.google.com/s2/favicons?domain=${hostname}&sz=32`, type: 'google' },
+      { url: `https://icons.duckduckgo.com/ip3/${hostname}.ico`, type: 'duckduckgo' }
+    );
+    if (origin) {
+      sources.push(
+        { url: `${origin}/favicon.ico`, type: 'direct' },
+        { url: `${origin}/favicon.png`, type: 'direct' }
+      );
+    }
+    return sources;
+  }
+
+  async resolve(hostname, origin) {
+    const cached = this.cache[hostname];
+    if (cached) return cached.url;
+
+    let pending = this.pending.get(hostname);
+    if (pending) return pending;
+
+    pending = this.fetchBestFavicon(hostname, origin);
+    this.pending.set(hostname, pending);
+    try { return await pending; }
+    finally { this.pending.delete(hostname); }
+  }
+
+  async fetchBestFavicon(hostname, origin) {
+    const sources = this.getSources(hostname, origin);
+
+    const promises = sources.map(({ url, type }) =>
+      Utils.loadImage(url).then(({ img }) => {
+        if (type === 'google' && img.naturalWidth === 16 && img.naturalHeight === 16) {
+          throw new Error('Generic 16x16 placeholder');
+        }
+        if (type === 'duckduckgo' && img.naturalWidth === 48 && img.naturalHeight === 48) {
+          throw new Error('DuckDuckGo generic placeholder');
+        }
+        return url;
+      })
+    );
+
+    try {
+      const bestUrl = await Promise.any(promises);
+      this.setCache(hostname, bestUrl);
+      return bestUrl;
+    } catch {
+      this.setCache(hostname, null);
+      return null;
+    }
+  }
+
+>>>>>>> 71e98b2 (Initial commit: Add updated code and assets for home-new-tab extension)
   loadCache() {
     const data = Storage.get(CONFIG.FAVICON_CACHE_KEY, {});
     const now = Date.now();
     const valid = {};
+<<<<<<< HEAD
 
+=======
+>>>>>>> 71e98b2 (Initial commit: Add updated code and assets for home-new-tab extension)
     for (const [key, entry] of Object.entries(data)) {
       if (now - entry.ts < CONFIG.FAVICON_CACHE_EXPIRY_MS) {
         valid[key] = entry;
@@ -152,6 +240,7 @@ class FaviconManager {
     Storage.set(CONFIG.FAVICON_CACHE_KEY, this.cache);
   }
 
+<<<<<<< HEAD
   setCache(hostname, url) {
     this.cache[hostname] = { url, ts: Date.now() };
     this.saveCache();
@@ -201,12 +290,22 @@ class FaviconManager {
     }
     this.setCache(hostname, null);
     return null;
+=======
+  flushCache() {
+    this.saveCache();
+  }
+
+  setCache(hostname, url) {
+    this.cache[hostname] = { url, ts: Date.now() };
+    this.saveCache();
+>>>>>>> 71e98b2 (Initial commit: Add updated code and assets for home-new-tab extension)
   }
 
   async applyToElement(img, url, hostname) {
     const letterEl = img.nextElementSibling;
     const { origin } = Utils.parseUrl(url);
 
+<<<<<<< HEAD
     // Show letter placeholder initially
     img.style.display = 'none';
     if (letterEl) letterEl.style.display = 'block';
@@ -217,6 +316,20 @@ class FaviconManager {
       img.src = faviconUrl;
       img.style.display = 'block';
       if (letterEl) letterEl.style.display = 'none';
+=======
+    img.style.display = 'none';
+    if (letterEl) letterEl.style.display = 'block';
+
+    try {
+      const faviconUrl = await this.resolve(hostname, origin);
+      if (faviconUrl) {
+        img.src = faviconUrl;
+        img.style.display = 'block';
+        if (letterEl) letterEl.style.display = 'none';
+      }
+    } catch (e) {
+      // ignore
+>>>>>>> 71e98b2 (Initial commit: Add updated code and assets for home-new-tab extension)
     }
   }
 }
@@ -584,7 +697,13 @@ class App {
   }
 
   loadFavicons() {
+<<<<<<< HEAD
     this.dom.bookmarksGrid.querySelectorAll('.bookmark-favicon').forEach((img) => {
+=======
+    const faviconElements = this.dom.bookmarksGrid.querySelectorAll('.bookmark-favicon');
+    
+    faviconElements.forEach((img) => {
+>>>>>>> 71e98b2 (Initial commit: Add updated code and assets for home-new-tab extension)
       const url = img.dataset.url;
       const hostname = img.dataset.host;
       if (url && hostname) {
@@ -852,11 +971,21 @@ class App {
 
     // Notes tabs
     notesTabs.addEventListener('click', (e) => {
+<<<<<<< HEAD
       if (e.target.closest('.notes-tab-input')) return;
+=======
+      const input = e.target.closest('.notes-tab-input');
+      if (input) return;
+>>>>>>> 71e98b2 (Initial commit: Add updated code and assets for home-new-tab extension)
 
       const tab = e.target.closest('.notes-tab');
       if (!tab) return;
 
+<<<<<<< HEAD
+=======
+      if (this.notes.editingId) return;
+
+>>>>>>> 71e98b2 (Initial commit: Add updated code and assets for home-new-tab extension)
       const id = tab.dataset.noteId;
       if (id === this.notes.state.activeId) {
         this.beginRename(id);
@@ -869,6 +998,7 @@ class App {
     });
 
     notesTabs.addEventListener('keydown', (e) => {
+<<<<<<< HEAD
       if (!e.target.closest('.notes-tab-input')) return;
 
       if (e.key === 'Enter') {
@@ -879,14 +1009,39 @@ class App {
         e.preventDefault();
         this.finishRename(false);
         notesArea.focus();
+=======
+      const input = e.target.closest('.notes-tab-input');
+      if (!input) return;
+
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        this.finishRename(true);
+        this.dom.notesArea.focus();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        this.finishRename(false);
+        this.dom.notesArea.focus();
+>>>>>>> 71e98b2 (Initial commit: Add updated code and assets for home-new-tab extension)
       }
     });
 
     notesTabs.addEventListener('focusout', (e) => {
+<<<<<<< HEAD
       if (e.target.closest('.notes-tab-input') && this.notes.editingId) {
         this.finishRename(true);
       }
     }, true);
+=======
+      const input = e.target.closest('.notes-tab-input');
+      if (input && this.notes.editingId) {
+        // Use timeout to allow click events on buttons if necessary, 
+        // but commit rename on loss of focus
+        setTimeout(() => this.finishRename(true), 150);
+      }
+    });
+>>>>>>> 71e98b2 (Initial commit: Add updated code and assets for home-new-tab extension)
 
     // Notes buttons
     notesNewBtn.addEventListener('click', () => {
