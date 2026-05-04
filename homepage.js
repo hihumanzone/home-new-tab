@@ -255,14 +255,11 @@ class FaviconManager {
     }
     this.setCache(hostname, null);
     return null;
-  flushCache() {
-    this.saveCache();
   }
 
   setCache(hostname, url) {
     this.cache[hostname] = { url, ts: Date.now() };
     this.saveCache();
-
   }
 
   async applyToElement(img, url, hostname) {
@@ -273,15 +270,6 @@ class FaviconManager {
     img.style.display = 'none';
     if (letterEl) letterEl.style.display = 'block';
 
-    const faviconUrl = await this.resolve(hostname, origin);
-
-    if (faviconUrl) {
-      img.src = faviconUrl;
-      img.style.display = 'block';
-      if (letterEl) letterEl.style.display = 'none';
-    img.style.display = 'none';
-    if (letterEl) letterEl.style.display = 'block';
-
     try {
       const faviconUrl = await this.resolve(hostname, origin);
       if (faviconUrl) {
@@ -289,9 +277,8 @@ class FaviconManager {
         img.style.display = 'block';
         if (letterEl) letterEl.style.display = 'none';
       }
-    } catch (e) {
+    } catch {
       // ignore
-
     }
   }
 }
