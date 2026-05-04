@@ -90,7 +90,7 @@ const Utils = {
 
       img.onload = () => {
         clearTimeout(timer);
-        resolve(img.naturalWidth > 0 ? url : null);
+        resolve(img.naturalWidth > 0 ? { img, url } : null);
       };
       img.onerror = () => {
         clearTimeout(timer);
@@ -133,19 +133,18 @@ class FaviconManager {
 
   getSources(hostname, origin) {
     const sources = [];
+
     if (origin) {
-      sources.push({ url: `chrome://favicon/${origin}/`, type: 'chrome' });
+      sources.push({ url: `${origin}/favicon.ico`, type: 'direct' });
+      sources.push({ url: `${origin}/favicon.png`, type: 'direct' });
     }
-    sources.push(
-      { url: `https://www.google.com/s2/favicons?domain=${hostname}&sz=32`, type: 'google' },
-      { url: `https://icons.duckduckgo.com/ip3/${hostname}.ico`, type: 'duckduckgo' }
-    );
-    if (origin) {
-      sources.push(
-        { url: `${origin}/favicon.ico`, type: 'direct' },
-        { url: `${origin}/favicon.png`, type: 'direct' }
-      );
+
+    sources.push({ url: `https://icons.duckduckgo.com/ip3/${hostname}.ico`, type: 'duckduckgo' });
+
+    for (const size of CONFIG.FAVICON_SIZES) {
+      sources.push({ url: `https://www.google.com/s2/favicons?domain=${hostname}&sz=${size}`, type: 'google', size });
     }
+
     return sources;
   }
 
@@ -158,103 +157,40 @@ class FaviconManager {
 
     pending = this.fetchBestFavicon(hostname, origin);
     this.pending.set(hostname, pending);
-    try { return await pending; }
-    finally { this.pending.delete(hostname); }
+
+    try {
+      return await pending;
+    } finally {
+      this.pending.delete(hostname);
+    }
   }
 
   async fetchBestFavicon(hostname, origin) {
-    const sources = this.getSources(hostname, origin);
+    const promises = this.getSources(hostname, origin).map(({ url, type }) =>
+      Utils.loadImage(url).then((result) => {
+        if (!result) return null;
 
-    const promises = sources.map(({ url, type }) =>
-      Utils.loadImage(url).then(({ img }) => {
+        const { img } = result;
         if (type === 'google' && img.naturalWidth === 16 && img.naturalHeight === 16) {
-          throw new Error('Generic 16x16 placeholder');
+          return null;
         }
         if (type === 'duckduckgo' && img.naturalWidth === 48 && img.naturalHeight === 48) {
-          throw new Error('DuckDuckGo generic placeholder');
+          return null;
         }
+
         return url;
       })
     );
 
     try {
-      const bestUrl = await Promise.any(promises);
+      const results = await Promise.all(promises);
+      const bestUrl = results.find(Boolean) || null;
       this.setCache(hostname, bestUrl);
       return bestUrl;
     } catch {
       this.setCache(hostname, null);
       return null;
     }
-  }
-
-
-  loadCache() {
-    const data = Storage.get(CONFIG.FAVICON_CACHE_KEY, {});
-    const now = Date.now();
-    const valid = {};
-
-
-    for (const [key, entry] of Object.entries(data)) {
-      if (now - entry.ts < CONFIG.FAVICON_CACHE_EXPIRY_MS) {
-        valid[key] = entry;
-      }
-    }
-    return valid;
-  }
-
-  saveCache() {
-    Storage.set(CONFIG.FAVICON_CACHE_KEY, this.cache);
-  }
-
-  setCache(hostname, url) {
-    this.cache[hostname] = { url, ts: Date.now() };
-    this.saveCache();
-  }
-
-  getSources(hostname, origin) {
-    const sources = [];
-
-    if (origin) {
-      sources.push(`${origin}/favicon.ico`, `${origin}/favicon.png`);
-    }
-
-    sources.push(`https://icons.duckduckgo.com/ip3/${hostname}.ico`);
-
-    for (const size of CONFIG.FAVICON_SIZES) {
-      sources.push(`https://www.google.com/s2/favicons?domain=${hostname}&sz=${size}`);
-    }
-
-    return sources;
-  }
-
-  async resolve(hostname, origin) {
-    const cached = this.cache[hostname];
-    if (cached) return cached.url;
-
-    if (this.pending.has(hostname)) {
-      return this.pending.get(hostname);
-    }
-
-    const promise = this.tryLoadFavicon(hostname, origin);
-    this.pending.set(hostname, promise);
-
-    try {
-      return await promise;
-    } finally {
-      this.pending.delete(hostname);
-    }
-  }
-
-  async tryLoadFavicon(hostname, origin) {
-    for (const url of this.getSources(hostname, origin)) {
-      const result = await Utils.loadImage(url);
-      if (result) {
-        this.setCache(hostname, url);
-        return url;
-      }
-    }
-    this.setCache(hostname, null);
-    return null;
   }
 
   setCache(hostname, url) {
