@@ -4,24 +4,10 @@
   "version": "1.0.0",
   "description": "A minimal dark-themed homepage with search and bookmarks",
   "permissions": [
-<<<<<<< HEAD
     "bookmarks"
   ],
   "host_permissions": [
     "https://suggestqueries.google.com/*"
-=======
-    "bookmarks",
-    "favicon"
-  ],
-  "host_permissions": [
-    "https://suggestqueries.google.com/*",
-    "https://www.google.com/s2/favicons*",
-    "https://icons.duckduckgo.com/*",
-    "https://t0.gstatic.com/*",
-    "https://t1.gstatic.com/*",
-    "https://t2.gstatic.com/*",
-    "https://t3.gstatic.com/*"
->>>>>>> 71e98b2 (Initial commit: Add updated code and assets for home-new-tab extension)
   ],
   "chrome_url_overrides": {
     "newtab": "homepage.html"

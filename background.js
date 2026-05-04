@@ -10,11 +10,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 console.error('Error fetching suggestions:', error);
                 sendResponse({ suggestions: [] });
             });
-<<<<<<< HEAD
         return true; // Keep message channel open for async response
-=======
-        return true;
->>>>>>> 71e98b2 (Initial commit: Add updated code and assets for home-new-tab extension)
     }
 });
 
