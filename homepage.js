@@ -86,12 +86,6 @@ const Utils = {
       const timer = setTimeout(() => {
         img.src = '';
         resolve(null);
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      const timer = setTimeout(() => {
-        img.src = '';
-        reject(new Error(`Timeout: ${url}`));
-
       }, timeout);
 
       img.onload = () => {
@@ -101,16 +95,6 @@ const Utils = {
       img.onerror = () => {
         clearTimeout(timer);
         resolve(null);
-        if (img.naturalWidth > 0) {
-          resolve({ img, url });
-        } else {
-          reject(new Error(`Zero dimensions: ${url}`));
-        }
-      };
-      img.onerror = () => {
-        clearTimeout(timer);
-        reject(new Error(`Load failed: ${url}`));
-
       };
       img.src = url;
     });
