@@ -906,16 +906,10 @@ class App {
 
     // Notes tabs
     notesTabs.addEventListener('click', (e) => {
-      if (e.target.closest('.notes-tab-input')) return;
-      const input = e.target.closest('.notes-tab-input');
-      if (input) return;
-
-
       const tab = e.target.closest('.notes-tab');
       if (!tab) return;
 
       if (this.notes.editingId) return;
-
 
       const id = tab.dataset.noteId;
       if (id === this.notes.state.activeId) {
@@ -929,45 +923,26 @@ class App {
     });
 
     notesTabs.addEventListener('keydown', (e) => {
-      if (!e.target.closest('.notes-tab-input')) return;
-
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        this.finishRename(true);
-        notesArea.focus();
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        this.finishRename(false);
-        notesArea.focus();
       const input = e.target.closest('.notes-tab-input');
       if (!input) return;
 
       if (e.key === 'Enter') {
         e.preventDefault();
-        e.stopPropagation();
         this.finishRename(true);
         this.dom.notesArea.focus();
       } else if (e.key === 'Escape') {
         e.preventDefault();
-        e.stopPropagation();
         this.finishRename(false);
         this.dom.notesArea.focus();
-
       }
     });
 
     notesTabs.addEventListener('focusout', (e) => {
-      if (e.target.closest('.notes-tab-input') && this.notes.editingId) {
+      const input = e.target.closest('.notes-tab-input');
+      if (input && this.notes.editingId) {
         this.finishRename(true);
       }
     }, true);
-      const input = e.target.closest('.notes-tab-input');
-      if (input && this.notes.editingId) {
-        // Use timeout to allow click events on buttons if necessary, 
-        // but commit rename on loss of focus
-        setTimeout(() => this.finishRename(true), 150);
-      }
-    });
 
 
     // Notes buttons
