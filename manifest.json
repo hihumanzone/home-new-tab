@@ -4,7 +4,8 @@
   "version": "1.0.0",
   "description": "A minimal dark-themed homepage with search and bookmarks",
   "permissions": [
-    "bookmarks"
+    "bookmarks",
+    "storage"
   ],
   "host_permissions": [
     "https://suggestqueries.google.com/*"
