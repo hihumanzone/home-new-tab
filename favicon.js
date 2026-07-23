@@ -1,11 +1,14 @@
 import { CONFIG } from './config.js';
 import { Storage } from './storage.js';
-import { loadImage, parseUrl } from './utils.js';
+import { loadImage, parseUrl, debounce } from './utils.js';
 
 class FaviconManager {
+  #debouncedSaveCache;
+
   constructor() {
     this.cache = this.#loadCache();
     this.pending = new Map();
+    this.#debouncedSaveCache = debounce(() => Storage.set(CONFIG.FAVICON_CACHE_KEY, this.cache), 500);
   }
 
   #loadCache() {
@@ -23,7 +26,7 @@ class FaviconManager {
   }
 
   #saveCache() {
-    Storage.set(CONFIG.FAVICON_CACHE_KEY, this.cache);
+    this.#debouncedSaveCache();
   }
 
   #getSources(hostname, origin) {

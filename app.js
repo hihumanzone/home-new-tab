@@ -1,5 +1,5 @@
 import { CONFIG } from './config.js';
-import { $ } from './utils.js';
+import { $, debounce } from './utils.js';
 import { BookmarkManager } from './bookmarks.js';
 import { SearchManager } from './search.js';
 import { faviconManager } from './favicon.js';
@@ -61,6 +61,8 @@ class App {
         deleteBtn: $('notesDeleteBtn'),
         clearBtn: $('notesClearBtn'),
         undoBtn: $('notesUndoBtn'),
+        moveLeftBtn: $('notesMoveLeftBtn'),
+        moveRightBtn: $('notesMoveRightBtn'),
         exportBtn: $('notesExportBtn'),
         importBtn: $('notesImportBtn'),
         importFile: $('notesImportFile'),
@@ -88,6 +90,48 @@ class App {
       id === CONFIG.BOOKMARKS_BAR_ID ? this.bookmarks.bookmarkBar : await this.bookmarks.getFolder(id);
 
     if (folder) this.displayFolder(folder);
+  }
+
+  async refreshBookmarks() {
+    try {
+      const bar = await this.bookmarks.load();
+      this.search.cache?.clear();
+
+      let targetFolder = null;
+      if (this.currentFolder?.id) {
+        targetFolder =
+          this.currentFolder.id === CONFIG.BOOKMARKS_BAR_ID
+            ? bar
+            : await this.bookmarks.getFolder(this.currentFolder.id);
+      }
+
+      this.displayFolder(targetFolder || bar);
+
+      const activeQuery = this.dom.search.input?.value.trim();
+      if (activeQuery) {
+        this.handleSearchInput(activeQuery);
+      }
+    } catch (err) {
+      console.error('Failed to auto-refresh bookmarks:', err);
+    }
+  }
+
+  listenBookmarkEvents() {
+    if (typeof chrome === 'undefined' || !chrome.bookmarks) return;
+
+    const debouncedRefresh = debounce(() => this.refreshBookmarks(), 100);
+    const events = [
+      chrome.bookmarks.onCreated,
+      chrome.bookmarks.onRemoved,
+      chrome.bookmarks.onChanged,
+      chrome.bookmarks.onMoved,
+      chrome.bookmarks.onChildrenReordered,
+      chrome.bookmarks.onImportEnded,
+    ];
+
+    events.forEach((evt) => {
+      evt?.addListener?.(debouncedRefresh);
+    });
   }
 
   // --------------- Search ---------------
@@ -138,10 +182,8 @@ class App {
   }
 
   openSearchResult(query) {
-    const match = this.bookmarks.allBookmarks.find(
-      (b) =>
-        b.title?.toLowerCase() === query.toLowerCase() || b.url?.toLowerCase().includes(query.toLowerCase())
-    );
+    const matches = this.bookmarks.search(query);
+    const match = matches[0];
     window.open(match ? match.url : `https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank');
   }
 
@@ -209,6 +251,23 @@ class App {
 
     if (this.dom.notes.undoBtn) {
       this.dom.notes.undoBtn.style.display = this.notes.lastDeletedNote?.note ? 'inline-block' : 'none';
+    }
+
+    const activeIdx = this.notes.state.notes.findIndex((n) => n.id === this.notes.state.activeId);
+    if (this.dom.notes.moveLeftBtn) {
+      this.dom.notes.moveLeftBtn.disabled = activeIdx <= 0;
+    }
+    if (this.dom.notes.moveRightBtn) {
+      this.dom.notes.moveRightBtn.disabled =
+        activeIdx === -1 || activeIdx >= this.notes.state.notes.length - 1;
+    }
+  }
+
+  async moveActiveNote(offset) {
+    if (this.notes.editingId) return;
+    if (this.notes.moveActiveNote(offset)) {
+      this.renderNotes();
+      await this.saveNotes('Reordered');
     }
   }
 
@@ -299,6 +358,7 @@ class App {
   // --------------- Event Bindings ---------------
 
   bindEvents() {
+    this.listenBookmarkEvents();
     const { search: s, bookmarksGrid, breadcrumb, notes: n } = this.dom;
 
     // Search
@@ -433,6 +493,105 @@ class App {
     if (n.undoBtn) {
       n.undoBtn.addEventListener('click', () => this.undoDelete());
     }
+
+    if (n.moveLeftBtn) {
+      n.moveLeftBtn.addEventListener('click', () => this.moveActiveNote(-1));
+    }
+    if (n.moveRightBtn) {
+      n.moveRightBtn.addEventListener('click', () => this.moveActiveNote(1));
+    }
+
+    // Drag & drop note reordering
+    let draggedId = null;
+
+    n.tabs.addEventListener('dragstart', (e) => {
+      const tab = e.target.closest('.notes-tab');
+      if (!tab || this.notes.editingId) {
+        e.preventDefault();
+        return;
+      }
+      draggedId = tab.dataset.noteId;
+      tab.classList.add('dragging');
+      if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', draggedId);
+      }
+    });
+
+    n.tabs.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      const tab = e.target.closest('.notes-tab');
+      if (!tab || !draggedId || tab.dataset.noteId === draggedId) return;
+
+      if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = 'move';
+      }
+
+      n.tabs.querySelectorAll('.notes-tab').forEach((t) => {
+        if (t !== tab) t.classList.remove('drag-over-left', 'drag-over-right');
+      });
+
+      const rect = tab.getBoundingClientRect();
+      const midX = rect.left + rect.width / 2;
+      if (e.clientX < midX) {
+        tab.classList.add('drag-over-left');
+        tab.classList.remove('drag-over-right');
+      } else {
+        tab.classList.add('drag-over-right');
+        tab.classList.remove('drag-over-left');
+      }
+    });
+
+    n.tabs.addEventListener('dragleave', (e) => {
+      const tab = e.target.closest('.notes-tab');
+      if (tab) {
+        tab.classList.remove('drag-over-left', 'drag-over-right');
+      }
+    });
+
+    n.tabs.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      const targetTab = e.target.closest('.notes-tab');
+      if (!targetTab || !draggedId) return;
+
+      const targetIdx = parseInt(targetTab.dataset.index, 10);
+      const rect = targetTab.getBoundingClientRect();
+      const midX = rect.left + rect.width / 2;
+
+      let destinationIdx = targetIdx;
+      if (e.clientX > midX) {
+        destinationIdx += 1;
+      }
+
+      const fromIdx = this.notes.state.notes.findIndex((item) => item.id === draggedId);
+      if (fromIdx !== -1 && fromIdx < destinationIdx) {
+        destinationIdx -= 1;
+      }
+
+      if (this.notes.moveNote(draggedId, destinationIdx)) {
+        this.renderNotes();
+        await this.saveNotes('Reordered');
+      }
+    });
+
+    n.tabs.addEventListener('dragend', () => {
+      draggedId = null;
+      n.tabs.querySelectorAll('.notes-tab').forEach((t) => {
+        t.classList.remove('dragging', 'drag-over-left', 'drag-over-right');
+      });
+    });
+
+    // Keyboard shortcuts for note reordering (Alt+Left, Alt+Right)
+    document.addEventListener('keydown', (e) => {
+      if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        const isNotesAreaFocused = document.activeElement === n.area;
+        const isTabFocused = n.tabs.contains(document.activeElement);
+        if (isNotesAreaFocused || isTabFocused) {
+          e.preventDefault();
+          this.moveActiveNote(e.key === 'ArrowLeft' ? -1 : 1);
+        }
+      }
+    });
 
     // Info Bar
     this.dom.info.btn.addEventListener('click', (e) => {

@@ -85,14 +85,15 @@ class Renderer {
 
   static notesTabs(notes, activeId, editingId) {
     return notes
-      .map((n) => {
+      .map((n, index) => {
         const active = n.id === activeId ? ' active' : '';
         const editing = n.id === editingId ? ' editing' : '';
+        const isDraggable = n.id !== editingId;
         const title = escapeHtml(n.title);
         const value = escapeAttr(n.title);
 
         return [
-          '<button class="notes-tab', active, editing, '" role="tab" data-note-id="', n.id, '" title="', title, '" aria-selected="', n.id === activeId, '">',
+          '<button class="notes-tab', active, editing, '" role="tab" data-note-id="', n.id, '" data-index="', index, '" draggable="', isDraggable, '" title="', title, '" aria-selected="', n.id === activeId, '">',
             '<span class="notes-tab-label">', title, '</span>',
             '<input class="notes-tab-input" data-note-id="', n.id, '" value="', value, '" spellcheck="false">',
           '</button>',

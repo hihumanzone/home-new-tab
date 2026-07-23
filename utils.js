@@ -2,14 +2,15 @@ import { CONFIG } from './config.js';
 
 export const $ = (id) => document.getElementById(id);
 
-export function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
+export const escapeHtml = (text) =>
+  String(text ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 
-export const escapeAttr = (text) =>
-  String(text).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+export const escapeAttr = (text) => escapeHtml(text);
 
 export function parseUrl(url) {
   try {

@@ -241,9 +241,40 @@ body {
   color: var(--text-secondary);
   padding: 0;
   border-radius: var(--border-radius-sm);
-  cursor: pointer;
+  cursor: grab;
   white-space: nowrap;
   max-width: 260px;
+  user-select: none;
+  transition: transform 0.15s ease, opacity 0.15s ease, border-color 0.15s ease;
+}
+
+.notes-tab:active {
+  cursor: grabbing;
+}
+
+.notes-tab.dragging {
+  opacity: 0.4;
+  border-style: dashed;
+  background: var(--bg-hover);
+}
+
+.notes-tab.drag-over-left {
+  border-left: 3px solid var(--accent-primary);
+}
+
+.notes-tab.drag-over-right {
+  border-right: 3px solid var(--accent-primary);
+}
+
+.notes-move-btn {
+  padding: 4px 6px;
+  line-height: 1;
+}
+
+.notes-move-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  border-color: var(--border-color);
 }
 
 .notes-tab:hover {
@@ -275,6 +306,10 @@ body {
   padding: 4px 10px;
   width: 160px;
   max-width: 260px;
+}
+
+.notes-tab.editing {
+  cursor: text;
 }
 
 .notes-tab.editing .notes-tab-label {

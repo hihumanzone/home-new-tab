@@ -71,6 +71,25 @@ class NotesManager {
     return false;
   }
 
+  moveNote(id, targetIndex) {
+    const fromIdx = this.state.notes.findIndex((n) => n.id === id);
+    if (fromIdx === -1) return false;
+
+    const clampedIdx = Math.max(0, Math.min(targetIndex, this.state.notes.length - 1));
+    if (fromIdx === clampedIdx) return false;
+
+    const [moved] = this.state.notes.splice(fromIdx, 1);
+    this.state.notes.splice(clampedIdx, 0, moved);
+    return true;
+  }
+
+  moveActiveNote(offset) {
+    const fromIdx = this.state.notes.findIndex((n) => n.id === this.state.activeId);
+    if (fromIdx === -1) return false;
+
+    return this.moveNote(this.state.activeId, fromIdx + offset);
+  }
+
   deleteActive() {
     const idx = this.state.notes.findIndex((n) => n.id === this.state.activeId);
     if (idx === -1) return false;
