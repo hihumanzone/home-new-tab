@@ -2,6 +2,17 @@
 
 A minimal, performance-optimized dark-themed homepage for your browser. This extension replaces the default new tab page with a clean interface featuring search, bookmarks, and a notes area.
 
+## Screenshots
+
+### Homepage Overview
+![Homepage Overview](screenshots/homepage-overview.png)
+
+### Search Suggestions
+![Search Suggestions](screenshots/search-suggestions.png)
+
+### Bookmarks Info Tooltip
+![Bookmarks Info Tooltip](screenshots/bookmarks-tooltip.png)
+
 ## Features
 
 - **Minimalist Design**: Dark-themed, distraction-free interface.
