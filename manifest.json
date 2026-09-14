@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Custom New Tab",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "A lightweight, fast, dark-themed new tab dashboard with bookmarks and notes",
   "permissions": [
     "bookmarks",
