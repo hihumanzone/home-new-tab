@@ -7,87 +7,101 @@
   <link rel="stylesheet" href="homepage.css" />
 </head>
 <body>
-  <div class="search-container">
-    <input
-      type="text"
-      class="search-box"
-      placeholder="Search bookmarks or web..."
-      autocomplete="off"
-      id="searchInput"
-      autofocus
-      aria-label="Search bookmarks or Google"
-      aria-autocomplete="list"
-      aria-controls="suggestions"
-      aria-expanded="false"
-      spellcheck="false"
-    />
-    <div class="suggestions" id="suggestions" role="listbox"></div>
-  </div>
-
-  <div class="bookmarks-wrapper">
-    <div class="section-header">
-      <nav class="breadcrumb" id="breadcrumb" aria-label="Breadcrumb navigation"></nav>
+  <header class="app-header">
+    <div class="clock-widget">
+      <time class="clock" id="clock" aria-label="Current time">--:--</time>
+      <div class="meta-row">
+        <span class="date" id="date"></span>
+        <span class="meta-dot" aria-hidden="true">•</span>
+        <span class="greeting" id="greeting">Welcome</span>
+      </div>
     </div>
+  </header>
 
-    <div class="bookmarks-grid" id="bookmarksGrid" role="grid">
-      <div class="empty-state">Loading bookmarks...</div>
-    </div>
-
-    <section class="notes" aria-label="Notes">
-      <div class="notes-header">
-        <div class="notes-tabs" id="notesTabs" role="tablist" aria-label="Notes tabs"></div>
-        <div class="notes-divider" aria-hidden="true"></div>
-        <div class="notes-actions">
-          <span class="notes-status" id="notesStatus" aria-live="polite"></span>
-          <button class="notes-btn" id="notesUndoBtn" type="button" aria-label="Undo delete" style="display:none">
-            Undo
-          </button>
-          <button class="notes-btn notes-move-btn" id="notesMoveLeftBtn" type="button" aria-label="Move note left" title="Move note left (Alt+Left)">
-            ◀
-          </button>
-          <button class="notes-btn notes-move-btn" id="notesMoveRightBtn" type="button" aria-label="Move note right" title="Move note right (Alt+Right)">
-            ▶
-          </button>
-          <button class="notes-btn" id="notesExportBtn" type="button" aria-label="Export notes">
-            Export
-          </button>
-          <button class="notes-btn" id="notesImportBtn" type="button" aria-label="Import notes">
-            Import
-          </button>
-          <input type="file" id="notesImportFile" accept="application/json" style="display:none" />
-          <button class="notes-btn" id="notesNewBtn" type="button" aria-label="New note">
-            New
-          </button>
-          <button class="notes-btn" id="notesDeleteBtn" type="button" aria-label="Delete current note">
-            Delete
-          </button>
-          <button class="notes-btn" id="notesClearBtn" type="button" aria-label="Clear current note">
-            Clear
+  <main class="main-container">
+    <section class="bookmarks-section" aria-label="Bookmarks">
+      <div class="section-toolbar">
+        <div class="breadcrumb-container">
+          <nav class="breadcrumb" id="breadcrumb" aria-label="Breadcrumb navigation"></nav>
+        </div>
+        <div class="section-actions">
+          <button class="ghost-action-btn" id="manageBookmarksBtn" type="button" title="Manage bookmarks in Chrome">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+            <span>Bookmarks</span>
           </button>
         </div>
       </div>
 
-      <textarea
-        class="notes-area"
-        id="notesArea"
-        placeholder="Quick notes… (autosaves)"
-        spellcheck="false"
-      ></textarea>
+      <div class="bookmarks-grid" id="bookmarksGrid" role="region" aria-label="Bookmark grid">
+        <div class="empty-state">Loading bookmarks...</div>
+      </div>
     </section>
-  </div>
+
+    <section class="notes-card" aria-label="Notes">
+      <div class="notes-header">
+        <div class="notes-tabs-wrapper">
+          <div class="notes-tabs" id="notesTabs" role="tablist" aria-label="Notes tabs"></div>
+          <button class="notes-btn-icon notes-add-btn" id="notesNewBtn" type="button" title="New note" aria-label="New note">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </button>
+        </div>
+
+        <div class="notes-actions">
+          <span class="notes-status" id="notesStatus" aria-live="polite"></span>
+          <button class="notes-btn notes-undo-btn" id="notesUndoBtn" type="button" aria-label="Undo delete" style="display:none" title="Undo delete">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+            <span>Undo</span>
+          </button>
+
+          <div class="button-group" role="group" aria-label="Note order">
+            <button class="notes-btn-icon notes-move-btn" id="notesMoveLeftBtn" type="button" aria-label="Move note left" title="Move note left (Alt+Left)">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            </button>
+            <button class="notes-btn-icon notes-move-btn" id="notesMoveRightBtn" type="button" aria-label="Move note right" title="Move note right (Alt+Right)">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </button>
+          </div>
+
+          <div class="button-group" role="group" aria-label="Backup">
+            <button class="notes-btn-icon" id="notesExportBtn" type="button" aria-label="Export notes" title="Export notes (JSON)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            </button>
+            <button class="notes-btn-icon" id="notesImportBtn" type="button" aria-label="Import notes" title="Import notes (JSON)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            </button>
+          </div>
+          <input type="file" id="notesImportFile" accept="application/json" style="display:none" />
+
+          <div class="button-group" role="group" aria-label="Manage note">
+            <button class="notes-btn-icon" id="notesClearBtn" type="button" aria-label="Clear current note" title="Clear note text">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+            </button>
+            <button class="notes-btn-icon danger-btn" id="notesDeleteBtn" type="button" aria-label="Delete current note" title="Delete note">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="notes-body">
+        <textarea
+          class="notes-area"
+          id="notesArea"
+          placeholder="Capture thoughts, scratchpads, links, or to-dos… (autosaves)"
+          spellcheck="true"
+          autocorrect="on"
+          autocapitalize="sentences"
+          autocomplete="on"
+        ></textarea>
+      </div>
+    </section>
+  </main>
 
   <div class="copy-notification" id="copyNotification" role="alert" aria-live="polite">
     Copied to clipboard!
   </div>
 
-  <button class="info-btn" id="infoBtn" aria-label="Bookmark Info" title="Where are these shortcuts from?">
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="7"></circle><line x1="8" y1="11" x2="8" y2="8"></line><line x1="8" y1="5" x2="8.01" y2="5"></line></svg>
-  </button>
-
-  <div class="info-panel" id="infoPanel" role="status">
-    Shortcuts are browser bookmarks. To edit them, go to <span class="chrome-link" id="bookmarksLink">chrome://bookmarks</span>
-  </div>
-
   <script type="module" src="app.js"></script>
 </body>
 </html>
+

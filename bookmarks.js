@@ -48,36 +48,6 @@ class BookmarkManager {
     }
     return path;
   }
-
-  search(query) {
-    const q = query.trim().toLowerCase();
-    if (!q) return [];
-
-    const getScore = (b) => {
-      const title = (b.title || '').toLowerCase();
-      const url = (b.url || '').toLowerCase();
-      const titleMatch = title.includes(q);
-      const urlMatch = url.includes(q);
-
-      if (titleMatch) {
-        if (title === q) return 100;
-        if (title.startsWith(q)) return 80;
-        return 60;
-      }
-      if (urlMatch) {
-        if (url === q) return 40;
-        return 20;
-      }
-      return 0;
-    };
-
-    return this.allBookmarks
-      .map((b) => ({ bookmark: b, score: getScore(b) }))
-      .filter((item) => item.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .map((item) => item.bookmark)
-      .slice(0, CONFIG.MAX_BOOKMARK_RESULTS);
-  }
 }
 
 export { BookmarkManager };

@@ -1,7 +1,6 @@
 import { CONFIG } from './config.js';
 import { $, debounce } from './utils.js';
 import { BookmarkManager } from './bookmarks.js';
-import { SearchManager } from './search.js';
 import { faviconManager } from './favicon.js';
 import { NotesManager } from './notes.js';
 import { Renderer } from './renderer.js';
@@ -9,16 +8,13 @@ import { Renderer } from './renderer.js';
 class App {
   constructor() {
     this.bookmarks = new BookmarkManager();
-    this.search = new SearchManager(this.bookmarks);
     this.favicon = faviconManager;
     this.notes = new NotesManager();
 
     this.currentFolder = null;
-    this.selectedIndex = -1;
-    this.lastQuery = '';
-
     this.saveTimer = null;
     this.statusTimer = null;
+    this.clockTimer = null;
     this.notesResizeCache = null;
 
     this.dom = {};
@@ -26,6 +22,7 @@ class App {
 
   async init() {
     this.cacheDom();
+    this.initClock();
 
     try {
       const bar = await this.bookmarks.load();
@@ -35,23 +32,62 @@ class App {
       this.renderNotes();
 
       this.bindEvents();
-      this.dom.search.input.focus();
+
+      // Ensure no in-page element holds focus on load so the browser retains focus on the address bar
+      if (document.activeElement && document.activeElement !== document.body) {
+        document.activeElement.blur();
+      }
     } catch (error) {
       console.error('Init error:', error);
       this.dom.bookmarksGrid.innerHTML =
-        '<div class="empty-state">Failed to load. <span class="empty-state retry-btn" id="retryBtn">Retry</span></div>';
+        '<div class="empty-state">Failed to load bookmarks. <span class="empty-state retry-btn" id="retryBtn">Retry</span></div>';
       document.getElementById('retryBtn')?.addEventListener('click', () => this.init());
     }
   }
 
+  initClock() {
+    const update = () => {
+      const now = new Date();
+      const rawHours = now.getHours();
+      const hours12 = rawHours % 12 || 12;
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const ampm = rawHours >= 12 ? 'PM' : 'AM';
+
+      if (this.dom.clock) {
+        this.dom.clock.innerHTML = `${hours12}:${minutes} <span class="clock-ampm">${ampm}</span>`;
+        this.dom.clock.setAttribute('aria-label', `${hours12}:${minutes} ${ampm}`);
+      }
+
+      if (this.dom.date) {
+        this.dom.date.textContent = now.toLocaleDateString(undefined, {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+        });
+      }
+
+      if (this.dom.greeting) {
+        let greeting = 'Good evening';
+        if (rawHours >= 5 && rawHours < 12) greeting = 'Good morning';
+        else if (rawHours >= 12 && rawHours < 17) greeting = 'Good afternoon';
+        else if (rawHours >= 17 && rawHours < 22) greeting = 'Good evening';
+        else greeting = 'Good night';
+        this.dom.greeting.textContent = greeting;
+      }
+    };
+
+    update();
+    this.clockTimer = setInterval(update, 1000);
+  }
+
   cacheDom() {
     this.dom = {
-      search: {
-        input: $('searchInput'),
-        suggestions: $('suggestions'),
-      },
+      clock: $('clock'),
+      date: $('date'),
+      greeting: $('greeting'),
       bookmarksGrid: $('bookmarksGrid'),
       breadcrumb: $('breadcrumb'),
+      manageBookmarksBtn: $('manageBookmarksBtn'),
       notification: $('copyNotification'),
       notes: {
         area: $('notesArea'),
@@ -67,12 +103,6 @@ class App {
         importBtn: $('notesImportBtn'),
         importFile: $('notesImportFile'),
       },
-    };
-
-    this.dom.info = {
-      btn: $('infoBtn'),
-      panel: $('infoPanel'),
-      link: $('bookmarksLink'),
     };
   }
 
@@ -95,7 +125,6 @@ class App {
   async refreshBookmarks() {
     try {
       const bar = await this.bookmarks.load();
-      this.search.cache?.clear();
 
       let targetFolder = null;
       if (this.currentFolder?.id) {
@@ -106,11 +135,6 @@ class App {
       }
 
       this.displayFolder(targetFolder || bar);
-
-      const activeQuery = this.dom.search.input?.value.trim();
-      if (activeQuery) {
-        this.handleSearchInput(activeQuery);
-      }
     } catch (err) {
       console.error('Failed to auto-refresh bookmarks:', err);
     }
@@ -134,111 +158,6 @@ class App {
     });
   }
 
-  // --------------- Search ---------------
-
-  handleSearchInput(query) {
-    this.selectedIndex = -1;
-
-    if (!query) {
-      this.hideSuggestions();
-      return;
-    }
-
-    this.lastQuery = query;
-    this.search.search(query, (bookmarks, google) => {
-      if (this.lastQuery === query) {
-        this.showSuggestions(bookmarks, google);
-      }
-    });
-  }
-
-  showSuggestions(bookmarks, google) {
-    const html = Renderer.suggestions(bookmarks, google);
-    if (html) {
-      this.dom.search.suggestions.innerHTML = html;
-      this.dom.search.suggestions.classList.add('active');
-      this.dom.search.input.setAttribute('aria-expanded', 'true');
-    } else {
-      this.hideSuggestions();
-    }
-  }
-
-  hideSuggestions() {
-    const { suggestions, input } = this.dom.search;
-    suggestions.classList.remove('active');
-    suggestions.innerHTML = '';
-    input.setAttribute('aria-expanded', 'false');
-    this.selectedIndex = -1;
-  }
-
-  updateSelection() {
-    const items = this.dom.search.suggestions.querySelectorAll('.suggestion-item');
-    items.forEach((item, i) => {
-      const selected = i === this.selectedIndex;
-      item.classList.toggle('selected', selected);
-      item.setAttribute('aria-selected', String(selected));
-      if (selected) item.scrollIntoView({ block: 'nearest' });
-    });
-  }
-
-  openSearchResult(query) {
-    const matches = this.bookmarks.search(query);
-    const match = matches[0];
-    window.open(match ? match.url : `https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank');
-  }
-
-  handleSearchKeydown(e) {
-    const items = this.dom.search.suggestions.querySelectorAll('.suggestion-item');
-    const isActive = this.dom.search.suggestions.classList.contains('active');
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        if (items.length) {
-          this.selectedIndex = Math.min(this.selectedIndex + 1, items.length - 1);
-          this.updateSelection();
-        }
-        break;
-
-      case 'ArrowUp':
-        e.preventDefault();
-        if (items.length) {
-          this.selectedIndex = Math.max(this.selectedIndex - 1, -1);
-          this.updateSelection();
-        }
-        break;
-
-      case 'Tab':
-        if (isActive && items.length) {
-          e.preventDefault();
-          this.selectedIndex = (this.selectedIndex + 1) % items.length;
-          this.updateSelection();
-        }
-        break;
-
-      case 'Enter':
-        e.preventDefault();
-        if (this.selectedIndex >= 0 && items[this.selectedIndex]) {
-          items[this.selectedIndex].click();
-        } else if (this.dom.search.input.value.trim()) {
-          this.openSearchResult(this.dom.search.input.value.trim());
-        }
-        this.clearSearch();
-        break;
-
-      case 'Escape':
-        this.hideSuggestions();
-        this.dom.search.input.blur();
-        break;
-    }
-  }
-
-  clearSearch() {
-    this.dom.search.input.value = '';
-    this.hideSuggestions();
-  }
-
-  // --------------- Notes ---------------
 
   renderNotes() {
     this.dom.notes.tabs.innerHTML = Renderer.notesTabs(
@@ -250,7 +169,7 @@ class App {
     this.autoResizeNotes();
 
     if (this.dom.notes.undoBtn) {
-      this.dom.notes.undoBtn.style.display = this.notes.lastDeletedNote?.note ? 'inline-block' : 'none';
+      this.dom.notes.undoBtn.style.display = this.notes.lastDeletedNote?.note ? 'inline-flex' : 'none';
     }
 
     const activeIdx = this.notes.state.notes.findIndex((n) => n.id === this.notes.state.activeId);
@@ -359,50 +278,38 @@ class App {
 
   bindEvents() {
     this.listenBookmarkEvents();
-    const { search: s, bookmarksGrid, breadcrumb, notes: n } = this.dom;
+    const { bookmarksGrid, breadcrumb, notes: n } = this.dom;
 
-    // Search
-    s.input.addEventListener('input', () => this.handleSearchInput(s.input.value.trim()));
-    s.input.addEventListener('keydown', (e) => this.handleSearchKeydown(e));
-
-    // Suggestions click
-    s.suggestions.addEventListener('click', (e) => {
-      const item = e.target.closest('.suggestion-item');
-      if (!item) return;
-
-      const url = item.dataset.url;
-      const search = item.dataset.search;
-
-      if (url) window.open(url, '_blank');
-      else if (search) window.open(`https://www.google.com/search?q=${encodeURIComponent(search)}`, '_blank');
-
-      this.clearSearch();
-    });
-
-    // Suggestions mouse tracking
-    s.suggestions.addEventListener('mousemove', (e) => {
-      const item = e.target.closest('.suggestion-item');
-      if (!item) return;
-
-      const items = [...s.suggestions.querySelectorAll('.suggestion-item')];
-      const idx = items.indexOf(item);
-      if (idx !== -1 && idx !== this.selectedIndex) {
-        this.selectedIndex = idx;
-        this.updateSelection();
-      }
-    });
-
-    // Close suggestions on outside click
-    document.addEventListener('click', (e) => {
-      if (!s.input.contains(e.target) && !s.suggestions.contains(e.target)) {
-        this.hideSuggestions();
-      }
-    });
-
-    // Bookmarks grid
+    // Bookmarks grid click & keyboard
     bookmarksGrid.addEventListener('click', (e) => {
       const folder = e.target.closest('[data-folder-id]');
       if (folder) this.navigateToFolder(folder.dataset.folderId);
+    });
+
+    bookmarksGrid.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        const folder = e.target.closest('[data-folder-id]');
+        if (folder) {
+          e.preventDefault();
+          this.navigateToFolder(folder.dataset.folderId);
+        }
+      }
+    });
+
+    // Breadcrumb click & keyboard
+    breadcrumb.addEventListener('click', (e) => {
+      const item = e.target.closest('.breadcrumb-item');
+      if (item) this.navigateToFolder(item.dataset.folderId);
+    });
+
+    breadcrumb.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        const item = e.target.closest('.breadcrumb-item');
+        if (item) {
+          e.preventDefault();
+          this.navigateToFolder(item.dataset.folderId);
+        }
+      }
     });
 
     // Breadcrumb
@@ -593,26 +500,17 @@ class App {
       }
     });
 
-    // Info Bar
-    this.dom.info.btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.dom.info.panel.classList.toggle('active');
-    });
-
-    this.dom.info.link.addEventListener('click', (e) => {
+    // Bookmarks management
+    const openBookmarksManager = (e) => {
       e.preventDefault();
       if (typeof chrome !== 'undefined' && chrome.tabs) {
         chrome.tabs.create({ url: 'chrome://bookmarks' });
       } else {
         window.open('chrome://bookmarks', '_blank');
       }
-    });
+    };
 
-    document.addEventListener('click', (e) => {
-      if (!this.dom.info.btn.contains(e.target) && !this.dom.info.panel.contains(e.target)) {
-        this.dom.info.panel.classList.remove('active');
-      }
-    });
+    this.dom.manageBookmarksBtn?.addEventListener('click', openBookmarksManager);
 
     if (n.exportBtn) {
       n.exportBtn.addEventListener('click', () => {
@@ -637,12 +535,6 @@ class App {
         n.importFile.value = '';
       });
     }
-
-    // Focus management
-    window.addEventListener('focus', () => s.input.focus());
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) s.input.focus();
-    });
   }
 }
 
