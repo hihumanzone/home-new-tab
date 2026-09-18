@@ -142,6 +142,29 @@ body {
   color: var(--text-secondary);
 }
 
+.search-hint {
+  margin-top: 10px;
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
+  font-weight: 450;
+  letter-spacing: 0.01em;
+  user-select: none;
+}
+
+.search-hint kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  border: 1px solid var(--border-subtle);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-xs);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
 /* ==========================================================================
    Main Container
    ========================================================================== */

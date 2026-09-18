@@ -60,4 +60,45 @@ export class Storage {
       // Ignore migration errors
     }
   }
+
+  /**
+   * Subscribe to external changes for a key.
+   * Fires callback(newValue) when another tab writes to the same key.
+   * Works with chrome.storage.local (extension) and falls back to the
+   * window 'storage' event (localStorage). Returns an unsubscribe function.
+   */
+  static onChanged(key, callback) {
+    const cleanups = [];
+
+    if (typeof chrome !== 'undefined' && chrome.storage?.local?.onChanged) {
+      const listener = (changes, area) => {
+        if (area !== 'local') return;
+        if (!Object.prototype.hasOwnProperty.call(changes, key)) return;
+        callback(changes[key]?.newValue ?? null);
+      };
+      chrome.storage.local.onChanged.addListener(listener);
+      cleanups.push(() => chrome.storage.local.onChanged.removeListener(listener));
+    }
+
+    const storageListener = (e) => {
+      if (e.key !== key) return;
+      try {
+        callback(e.newValue ? JSON.parse(e.newValue) : null);
+      } catch {
+        // Ignore parse errors
+      }
+    };
+    if (typeof window !== 'undefined' && window.addEventListener) {
+      window.addEventListener('storage', storageListener);
+      cleanups.push(() => window.removeEventListener('storage', storageListener));
+    }
+
+    return () => cleanups.forEach((fn) => {
+      try {
+        fn();
+      } catch {
+        // Ignore
+      }
+    });
+  }
 }

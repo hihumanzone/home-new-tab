@@ -4,6 +4,7 @@ import { BookmarkManager } from './bookmarks.js';
 import { faviconManager } from './favicon.js';
 import { NotesManager } from './notes.js';
 import { Renderer } from './renderer.js';
+import { Storage } from './storage.js';
 
 class App {
   constructor() {
@@ -267,6 +268,88 @@ class App {
     }
   }
 
+  // --------------- Cross-tab notes sync ---------------
+
+  listenNotesSync() {
+    Storage.onChanged(CONFIG.NOTES_STORAGE_KEY, (newValue) => {
+      if (!newValue?.notes) return;
+      this.applyExternalNotes(newValue);
+    });
+  }
+
+  applyExternalNotes(remoteState) {
+    const area = this.dom.notes.area;
+    const wasAreaFocused = document.activeElement === area;
+    const areaSel =
+      wasAreaFocused && typeof area.selectionStart === 'number'
+        ? { start: area.selectionStart, end: area.selectionEnd }
+        : null;
+
+    // Stash in-progress rename draft so re-render doesn't eat keystrokes.
+    const editingId = this.notes.editingId;
+    let renameDraft = null;
+    if (editingId) {
+      const input = this.dom.notes.tabs.querySelector(
+        `.notes-tab-input[data-note-id="${editingId}"]`
+      );
+      if (input) {
+        renameDraft = {
+          value: input.value,
+          focused: document.activeElement === input,
+          start: input.selectionStart,
+          end: input.selectionEnd,
+        };
+      }
+    }
+
+    // While the user is actively using notes here, keep local tab selection
+    // instead of yanking them to the other tab's selected note.
+    const preserveActiveId = wasAreaFocused || !!this.saveTimer || !!editingId;
+
+    let changed = false;
+    try {
+      changed = this.notes.applyExternal(remoteState, { preserveActiveId });
+    } catch (err) {
+      console.error('Failed to merge notes from another tab:', err);
+      return;
+    }
+    if (!changed) return;
+
+    this.renderNotes();
+
+    // Restore rename draft (local in-progress title wins until committed).
+    if (editingId && this.notes.editingId === editingId && renameDraft) {
+      const input = this.dom.notes.tabs.querySelector(
+        `.notes-tab-input[data-note-id="${editingId}"]`
+      );
+      if (input) {
+        if (input.value !== renameDraft.value) input.value = renameDraft.value;
+        if (renameDraft.focused) {
+          input.focus({ preventScroll: true });
+          try {
+            input.setSelectionRange(renameDraft.start, renameDraft.end);
+          } catch {
+            // Ignore selection errors
+          }
+        }
+      }
+    }
+
+    // renderNotes() already set area.value to merged content; restore caret
+    // so remote updates don't interrupt local typing.
+    if (wasAreaFocused) {
+      area.focus({ preventScroll: true });
+      if (areaSel) {
+        const max = area.value.length;
+        try {
+          area.setSelectionRange(Math.min(areaSel.start, max), Math.min(areaSel.end, max));
+        } catch {
+          // Ignore selection errors
+        }
+      }
+    }
+  }
+
   // --------------- UI Helpers ---------------
 
   showNotification() {
@@ -278,6 +361,7 @@ class App {
 
   bindEvents() {
     this.listenBookmarkEvents();
+    this.listenNotesSync();
     const { bookmarksGrid, breadcrumb, notes: n } = this.dom;
 
     // Bookmarks grid click & keyboard
@@ -391,7 +475,7 @@ class App {
 
     n.clearBtn.addEventListener('click', async () => {
       this.finishRename(true);
-      if (this.notes.active) this.notes.active.content = '';
+      this.notes.updateContent('');
       n.area.value = '';
       this.autoResizeNotes();
       await this.saveNotes('Cleared');

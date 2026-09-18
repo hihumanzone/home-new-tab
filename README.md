@@ -4,14 +4,7 @@ A lightweight, fast, and modern dark-themed dashboard for your browser. This ext
 
 ## Screenshots
 
-### Homepage Overview
-![Homepage Overview](screenshots/homepage-overview.png)
-
-### Search Suggestions
-![Search Suggestions](screenshots/search-suggestions.png)
-
-### Bookmarks Info Tooltip
-![Bookmarks Info Tooltip](screenshots/bookmarks-tooltip.png)
+![Custom New Tab Dashboard](screenshots/screenshot.png)
 
 ## Features
 
